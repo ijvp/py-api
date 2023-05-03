@@ -1,0 +1,5 @@
+.env
+credentials.json
+google-ads.yaml
+__pycache__
+flask_env
