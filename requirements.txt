@@ -1,0 +1,9 @@
+Flask
+python-dotenv
+google-ads
+cryptography
+pymongo
+Flask-PyMongo
+google-auth
+certifi
+click

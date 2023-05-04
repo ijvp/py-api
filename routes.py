@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet
 from bson import ObjectId, json_util
 from flask import (Blueprint, request, url_for, jsonify)
 import google.oauth2.credentials
+from google.oauth2.credentials import Credentials
 from google.protobuf import json_format
 from extentions.database import mongo
 from datetime import datetime
@@ -18,7 +19,7 @@ load_dotenv()
 
 routes = Blueprint("routes", __name__)
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="credentials.json"
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="credentials.json"
 
 CLIENT_SECRETS_FILE = "credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/adwords']
@@ -38,10 +39,8 @@ def index():
 @routes.route('/google/authorize', methods=['GET'])
 def google_authorize():
   state = request.args.get('state')
-  flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-    CLIENT_SECRETS_FILE, scopes=SCOPES)
 
-  flow.redirect_uri = url_for('routes.google_callback', _external=True)
+  flow = get_flow()
 
   authorization_url, state = flow.authorization_url(
     access_type='offline',
@@ -56,12 +55,11 @@ def google_callback():
   state = request.args.get('state')
   id = '63e270c63fa2c1463717b406'
 
-  flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-    CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
-  flow.redirect_uri = url_for('routes.google_callback', _external=True)
+  flow = get_flow()
 
   authorization_response = request.url
   authorization_response = authorization_response.replace('http', 'https')
+
   flow.fetch_token(authorization_response=authorization_response)
 
   response = credentials_to_dict(flow.credentials)
@@ -80,22 +78,18 @@ def google_callback():
       shop_index = i
       break
 
-  encryptedToken = response['token'].encode()
-  print(encryptedToken, type(encryptedToken))
-  encrypted_token = fernet.encrypt(encryptedToken)
-
-  encryptedRefreshToken = response['refresh_token'].encode()
-  print(encryptedRefreshToken, type(encryptedRefreshToken))
-  encrypted_refresh_token = fernet.encrypt(encryptedRefreshToken)
-
+  # encrypted_token = fernet.encrypt(response['token'].encode())
+  # encrypted_refresh_token = fernet.encrypt(response['refresh_token'].encode())
   
+  encrypted_token = encrypt_token(response['token'])
+  encrypted_refresh_token = encrypt_token(response['refresh_token'])
 
   if shop_index is not None:
     result = mongo.db.users.update_one(
       {'_id': ObjectId(id), 'shops.name': state},
       {'$set': {
-          'shops.$.google_access_token': encrypted_token, 
-          'shops.$.google_refresh_token': encrypted_refresh_token
+          'shops.$.google_access_token': encrypt_token(response['token']), 
+          'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
         }
       }
     )
@@ -130,6 +124,8 @@ def google_accounts():
   refreshToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh')
   accessToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'access')
 
+  print({'refreshToken': refreshToken, 'accessToken': accessToken})
+
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
     refresh_token=refreshToken,
@@ -137,13 +133,6 @@ def google_accounts():
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
   )
-
-  # credentials = google.oauth2.credentials.Credentials.from_authorized_user_info(info={
-  #   "refresh_token": refreshToken,
-  #   "token_uri": 'https://oauth2.googleapis.com/token',
-  #   "client_id": os.environ.get('GOOGLE_CLIENT_ID'),
-  #   "client_secret": os.environ.get('GOOGLE_CLIENT_SECRET')
-  # }, scopes=SCOPES)
 
   client = get_google_ads_client(
     credentials=credentials,
@@ -229,3 +218,13 @@ def get_token(reqShops, shopName, type="access"):
 
 def get_google_ads_client(credentials, developer_token):
   return GoogleAdsClient(credentials=credentials, developer_token=developer_token)
+
+def get_flow():
+  flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+    CLIENT_SECRETS_FILE, scopes=SCOPES)
+  flow.redirect_uri = url_for('routes.google_callback', _external=True)
+
+  return flow
+
+def encrypt_token(token):
+  return fernet.encrypt(token.encode())
