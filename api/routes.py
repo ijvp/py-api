@@ -18,9 +18,9 @@ load_dotenv()
 
 routes = Blueprint("routes", __name__)
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="api/credentials.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="credentials.json"
 
-CLIENT_SECRETS_FILE = "api/credentials.json"
+CLIENT_SECRETS_FILE = "credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/adwords']
 API_SERVICE_NAME = 'drive'
 API_VERSION = 'v2'
