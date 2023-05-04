@@ -1,4 +1,5 @@
 Flask
+requests
 python-dotenv
 google-ads
 cryptography
@@ -7,7 +8,6 @@ Flask-PyMongo
 google-auth
 certifi
 click
-requests
 urllib3
 distlib
 google-api-core
