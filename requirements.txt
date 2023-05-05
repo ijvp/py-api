@@ -20,5 +20,6 @@ pycparser
 pyparsing
 PyYAML
 requests-oauthlib
+flask-cors
 
 
