@@ -1,5 +1,5 @@
 Flask
-pyOpenSSL
+pyOpenSSL>=1.1.1
 urllib3
 requests
 python-dotenv
