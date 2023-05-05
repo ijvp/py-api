@@ -19,8 +19,6 @@ load_dotenv()
 
 routes = Blueprint("routes", __name__)
 
-# os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="credentials.json"
-
 CLIENT_SECRETS_FILE = "credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/adwords']
 API_SERVICE_NAME = 'drive'
@@ -98,7 +96,7 @@ def google_callback():
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
   id = '63e270c63fa2c1463717b406'
-  shop = request.args.get('shop')
+  shop = request.args.get('store')
 
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
@@ -179,16 +177,72 @@ def google_account_connect():
   data = json.loads(request.get_data())
   id = '63e270c63fa2c1463717b406'
 
-  user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  user = json.loads(json_util.dumps((u for u in mongo.db.users.find({"_id": ObjectId(id)}))))[0]
 
-  user_json = json.loads(json_util.dumps(user))
+  shopExists = None
 
-  if len(user_json) == 0:
-    return ({'error': 'User not found!'}), 404
+  for shop in user['shops']:
+    if shop['name'] == data['store']:
+      shopExists = shop
 
-  #print({'client': data['client'], 'store': data['store']})
+  if shopExists is None:
+    return ({'error': 'Shop not found.'}), 404
+  
+  client = data['client']
 
-  return user_json
+  result = mongo.db.users.update_one(
+    {'_id': ObjectId(id), 'shops.name': data['store']},
+    {'$set': {
+        'shops.$.google_client.clilent_id': client['id'], 
+        'shops.$.google_client.client_name': client['descriptive_name']
+      }
+    }
+  )
+
+  if result.modified_count <= 0:
+    response = { 
+      "success": False, 
+      "message": "Update failed or did not modify any documents."
+    }
+
+    return json.dumps(response)
+  
+  response = { 
+    "success": True, 
+    "message": f"Google Ads account {client['descriptive_name']} added to {data['store']}"
+  }
+
+  return json.dumps(response)
+
+@routes.route('/google/account/disconnect', methods=['GET'])
+def google_account_disconnect():
+  shop = request.args.get('store')
+  id = '63e270c63fa2c1463717b406'
+
+  result = mongo.db.users.update_one(
+    {'_id': ObjectId(id), 'shops.name': shop},
+    {'$unset': {
+        "shops.$.google_client": 1,
+        "shops.$.google_access_token": 1,
+        "shops.$.google_refresh_token": 1
+      }
+    }
+  )
+
+  if result.modified_count <= 0:
+    response = { 
+      "success": False, 
+      "message": "Update failed or did not modify any documents."
+    }
+
+    return json.dumps(response)
+  
+  response = { 
+    "success": True, 
+    "message": f"Removed Google Ads account from ${shop}"
+  }
+
+  return json.dumps(response)
 
 def credentials_to_dict(credentials):
   return {'token': credentials.token,
@@ -212,13 +266,6 @@ def get_token(reqShops, shopName, type="access"):
 
 def get_google_ads_client(credentials, developer_token):
   return GoogleAdsClient(credentials=credentials, developer_token=developer_token)
-
-# def get_flow():
-#   flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-#     CLIENT_SECRETS_FILE, scopes=SCOPES)
-#   flow.redirect_uri = url_for('routes.google_callback', _external=True)
-
-#   return flow
 
 def get_flow():
 
