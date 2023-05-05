@@ -78,12 +78,6 @@ def google_callback():
       shop_index = i
       break
 
-  # encrypted_token = fernet.encrypt(response['token'].encode())
-  # encrypted_refresh_token = fernet.encrypt(response['refresh_token'].encode())
-  
-  encrypted_token = encrypt_token(response['token'])
-  encrypted_refresh_token = encrypt_token(response['refresh_token'])
-
   if shop_index is not None:
     result = mongo.db.users.update_one(
       {'_id': ObjectId(id), 'shops.name': state},
@@ -150,7 +144,7 @@ def google_accounts():
   for resource_name in response.resource_names:
 
     userId = resource_name.split('/')[-1]
-    print('3')
+
     ga_service = client.get_service(name="GoogleAdsService")
 
     query = """
@@ -219,9 +213,29 @@ def get_token(reqShops, shopName, type="access"):
 def get_google_ads_client(credentials, developer_token):
   return GoogleAdsClient(credentials=credentials, developer_token=developer_token)
 
+# def get_flow():
+#   flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
+#     CLIENT_SECRETS_FILE, scopes=SCOPES)
+#   flow.redirect_uri = url_for('routes.google_callback', _external=True)
+
+#   return flow
+
 def get_flow():
-  flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-    CLIENT_SECRETS_FILE, scopes=SCOPES)
+
+  credentialsObj = {
+    "installed": {
+      "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+      "project_id": "turbo-dashboard",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET"),
+      "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URL"),
+      "use_proto_plus": "True"
+    }
+  }
+
+  flow = google_auth_oauthlib.flow.Flow.from_client_config(client_config=credentialsObj,scopes=SCOPES)
   flow.redirect_uri = url_for('routes.google_callback', _external=True)
 
   return flow
