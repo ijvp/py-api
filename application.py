@@ -18,5 +18,4 @@ application.register_blueprint(routes)
 database.init_app(application)
 
 if __name__ == '__main__':
-  print('ok')
   application.run(host=os.environ.get('HOST'), port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'))
