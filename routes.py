@@ -96,7 +96,7 @@ def google_callback():
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
   id = '63e270c63fa2c1463717b406'
-  shop = request.args.get('store')
+  shop = request.args.get('shop')
 
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
@@ -193,8 +193,8 @@ def google_account_connect():
   result = mongo.db.users.update_one(
     {'_id': ObjectId(id), 'shops.name': data['store']},
     {'$set': {
-        'shops.$.google_client.clilent_id': client['id'], 
-        'shops.$.google_client.client_name': client['descriptive_name']
+        'shops.$.google_client.id': client['id'], 
+        'shops.$.google_client.name': client['descriptive_name']
       }
     }
   )
@@ -216,7 +216,7 @@ def google_account_connect():
 
 @routes.route('/google/account/disconnect', methods=['GET'])
 def google_account_disconnect():
-  shop = request.args.get('store')
+  shop = request.args.get('shop')
   id = '63e270c63fa2c1463717b406'
 
   result = mongo.db.users.update_one(
@@ -244,9 +244,101 @@ def google_account_disconnect():
 
   return json.dumps(response)
 
+@routes.route('/google/ads', methods=['post'])
+def google_ads():
+  id = '63e270c63fa2c1463717b406'
+  start = request.args.get('start')
+  end = request.args.get('end')
+  shop = request.args.get('store')
+
+  if not shop:
+    return ({'error': 'Missing store!'}), 400
+  
+  if not start or not end: 
+    return ({'error': 'Start date and end date must be set!'}), 400
+  
+  user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+
+  if not user:
+    return ({'error': 'User not found!'}), 404
+
+  user_json = json.loads(json_util.dumps(user))
+
+  if len(user_json) == 0:
+    return ({'error': 'User not found!'}), 404
+  
+  user_json = user_json[0]
+
+  shopFound = next((obj for obj in user_json['shops'] if obj["name"] == shop), None)
+
+  if(shopFound == None):
+    return ({'error': 'Store not found'}), 404
+  
+  if not shopFound['google_client']:
+    return ({'error': 'No client associated with this store'}), 404
+  
+  credentials = google.oauth2.credentials.Credentials(
+    get_token(reqShops = user_json['shops'], shopName = shop, type = 'access'),
+    refresh_token=get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh'),
+    token_uri='https://oauth2.googleapis.com/token',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
+  )
+
+  client = get_google_ads_client(
+    credentials=credentials,
+    developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
+  )
+
+  start_date = datetime.strptime(start, "%Y-%m-%d")
+  end_date = datetime.strptime(end, "%Y-%m-%d")
+
+  is_single_day=False
+
+  query = f"""
+      SELECT
+        campaign.id,
+        campaign.name,
+        metrics.cost_micros
+      FROM
+        campaign
+      WHERE
+        segments.date >= '{start_date.strftime('%Y%m%d')}' AND
+        segments.date <= '{end_date.strftime('%Y%m%d')}'
+  """
+  
+  ga_service = client.get_service(name="GoogleAdsService")
+
+  req = client.get_type("SearchGoogleAdsRequest")
+  req.customer_id = shopFound['google_client']['id']
+  req.query = query
+  resp = None
+
+  try:
+    response = ga_service.search(request=req)
+
+    response = json.dumps(response)
+
+    print(response)
+    
+    metrics = {
+        "id": "google-ads.ads-metrics",
+        "metricsBreakdown": []
+    }
+
+    for row in response:
+      metrics["metricsBreakdown"].append(row)
+
+    return metrics, 200
+  
+  except GoogleAdsException as e:
+    print('error:', str(e))
+
 def credentials_to_dict(credentials):
-  return {'token': credentials.token,
-    'refresh_token': credentials.refresh_token}
+  return {
+    'token': credentials.token,
+    'refresh_token': credentials.refresh_token
+  }
 
 def get_token(reqShops, shopName, type="access"):
    
