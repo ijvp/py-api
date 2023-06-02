@@ -13,6 +13,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
+from datetime import datetime, timedelta
 import base64
 
 load_dotenv()
@@ -28,6 +29,10 @@ API_VERSION = 'v2'
 # print(g)
 
 fernetKey = os.environ.get('FERNET_KEY')
+
+if fernetKey is None:
+    raise ValueError("FERNET_KEY environment variable is not set.")
+
 fernet = Fernet(fernetKey)
 
 @routes.route('/', methods=['GET'])
@@ -257,6 +262,12 @@ def google_ads():
   if not start or not end: 
     return ({'error': 'Start date and end date must be set!'}), 400
   
+  start_date = datetime.strptime(start, "%Y-%m-%d")
+  end_date = datetime.strptime(end, "%Y-%m-%d")
+
+  if start_date > end_date:
+    return ({'error': 'Start date cannot occur after the end date!'}), 400
+  
   user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
 
   if not user:
@@ -290,49 +301,81 @@ def google_ads():
     developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
   )
 
-  start_date = datetime.strptime(start, "%Y-%m-%d")
-  end_date = datetime.strptime(end, "%Y-%m-%d")
+  difference = end_date - start_date
 
-  is_single_day=False
+  if difference < timedelta(days=1):
+    is_single_day = True
+  else:
+    is_single_day = False
 
   query = f"""
-      SELECT
-        campaign.id,
-        campaign.name,
-        metrics.cost_micros
-      FROM
-        campaign
-      WHERE
-        segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-        segments.date <= '{end_date.strftime('%Y%m%d')}'
+    SELECT
+      metrics.cost_micros,
+      {"segments.hour" if is_single_day == True else "segments.date"}
+    FROM
+      campaign
+    WHERE
+      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
+      segments.date <= '{end_date.strftime('%Y%m%d')}'
   """
   
   ga_service = client.get_service(name="GoogleAdsService")
-
+  
   req = client.get_type("SearchGoogleAdsRequest")
   req.customer_id = shopFound['google_client']['id']
   req.query = query
-  resp = None
-
+  
   try:
     response = ga_service.search(request=req)
-
-    response = json.dumps(response)
-
-    print(response)
+    # print('antes', response)
     
     metrics = {
-        "id": "google-ads.ads-metrics",
-        "metricsBreakdown": []
+      "id": "google-ads.ads-metrics",
+      "metricsBreakdown": []
     }
 
-    for row in response:
-      metrics["metricsBreakdown"].append(row)
+    total=0
 
+    for row in response:
+      json_str = json_format.MessageToJson(row)
+      campaign = json.loads(json_str)
+
+      print(campaign)
+
+      dateKey = None
+
+      if is_single_day:
+        dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
+        datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
+        date_only = datetime_obj.date()
+        dateKey = str(date_only) + "T" + dateKey
+      else:
+        dateKey = campaign["segments"]["date"]
+
+      dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
+
+      total+=int(campaign["metrics"]["costMicros"]) / 1000000
+
+      if (dateExists):
+        dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
+        
+      else:
+        dataPoint = {
+          "date": dateKey,
+          "metrics": {
+            "spend": int(campaign["metrics"]["costMicros"]) / 1000000
+          }
+        }
+
+        metrics["metricsBreakdown"].append(dataPoint)
+    
+    print(total)
+      
     return metrics, 200
   
-  except GoogleAdsException as e:
-    print('error:', str(e))
+  except Exception as e:
+    print(f"An error occurred: {str(e)}")
+    return "Something went wrong", 500
 
 def credentials_to_dict(credentials):
   return {
