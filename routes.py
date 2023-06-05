@@ -51,6 +51,8 @@ def google_authorize():
     approval_prompt="force",
     include_granted_scopes='true',
     state=state)
+  
+  print(authorization_url)
 
   return authorization_url
 
@@ -62,10 +64,9 @@ def google_callback():
   flow = get_flow()
 
   authorization_response = request.url
-  print(authorization_response)
   authorization_response = authorization_response.replace('http', 'https')
 
-  flow.fetch_token(authorization_response=authorization_response)
+  flow.fetch_token(authorization_response=request.url)
 
   response = credentials_to_dict(flow.credentials)
 
