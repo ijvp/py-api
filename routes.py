@@ -32,7 +32,7 @@ API_VERSION = 'v2'
 fernetKey = os.environ.get('FERNET_KEY')
 
 if fernetKey is None:
-    raise ValueError("FERNET_KEY environment variable is not set.")
+  raise ValueError("FERNET_KEY environment variable is not set.")
 
 fernet = Fernet(fernetKey)
 
@@ -58,6 +58,8 @@ def google_authorize():
 def google_callback():
   state = request.args.get('state')
   id = '63e270c63fa2c1463717b406'
+
+  print(state, id)
 
   flow = get_flow()
 
