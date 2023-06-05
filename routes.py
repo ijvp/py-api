@@ -63,8 +63,7 @@ def google_callback():
 
   authorization_response = request.url
   print(authorization_response)
-  # authorization_response = authorization_response.replace('http', 'https')
-  print(authorization_response)
+  authorization_response = authorization_response.replace('http', 'https')
 
   flow.fetch_token(authorization_response=authorization_response)
 
