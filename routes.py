@@ -16,6 +16,7 @@ from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
 import base64
 import sys
+import jwt
 
 load_dotenv()
 
@@ -51,22 +52,28 @@ def google_authorize():
     approval_prompt="force",
     include_granted_scopes='true',
     state=state)
-  
-  print(authorization_url)
 
   return authorization_url
 
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state = request.args.get('state')
-  id = '63e270c63fa2c1463717b406'
+  sid = request.cookies.get('connect.sid')
+
+  print('sid', sid)
+
+  decoded_user = decode_session_id(sid)
+  if decoded_user is not None:
+      user_id = decoded_user['user_id']
+      print(user_id)
 
   flow = get_flow()
 
   authorization_response = request.url
   authorization_response = authorization_response.replace('http', 'https')
 
-  flow.fetch_token(authorization_response=request.url)
+  #flow.fetch_token(authorization_response=request.url)
+  flow.fetch_token(authorization_response=authorization_response)
 
   response = credentials_to_dict(flow.credentials)
 
@@ -103,12 +110,14 @@ def google_callback():
 
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
-  user = request.cookies.get('user')
-  print('request.cookies', request.cookies.get('connect.sid'))
-  session['userID'] = request.cookies.get('connect.sid')
-  print('session', session)
-  id = '63e270c63fa2c1463717b406'
+  sid = request.cookies.get('user')
+  id = request.args.get('id')
   shop = request.args.get('shop')
+
+  decoded_user = decode_session_id(sid)
+  if decoded_user is not None:
+      user_id = decoded_user['user_id']
+      print(user_id)
 
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
@@ -187,7 +196,7 @@ def google_accounts():
 @routes.route('/google/account/connect', methods=['POST'])
 def google_account_connect():
   data = json.loads(request.get_data())
-  id = '63e270c63fa2c1463717b406'
+  id = request.args.get('id')
 
   user = json.loads(json_util.dumps((u for u in mongo.db.users.find({"_id": ObjectId(id)}))))[0]
 
@@ -229,7 +238,7 @@ def google_account_connect():
 @routes.route('/google/account/disconnect', methods=['GET'])
 def google_account_disconnect():
   shop = request.args.get('shop')
-  id = '63e270c63fa2c1463717b406'
+  id = request.args.get('id')
 
   result = mongo.db.users.update_one(
     {'_id': ObjectId(id), 'shops.name': shop},
@@ -258,7 +267,7 @@ def google_account_disconnect():
 
 @routes.route('/google/ads', methods=['post'])
 def google_ads():
-  id = '63e270c63fa2c1463717b406'
+  id = request.args.get('id')
   start = request.args.get('start')
   end = request.args.get('end')
   shop = request.args.get('store')
@@ -274,6 +283,8 @@ def google_ads():
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
+  
+  print('id',id)
   
   user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
 
@@ -420,3 +431,24 @@ def get_flow():
 
 def encrypt_token(token):
   return fernet.encrypt(token.encode())
+
+
+
+def decode_session_id(sid):
+    session_secret = os.environ.get('FLASK_SECRET_KEY')
+
+    print('session_secret', session_secret)
+
+    if session_secret:
+      try:
+          decoded_token = jwt.decode(sid, session_secret, algorithms=['HS256'])
+          print('decoded_token', decoded_token)
+          return decoded_token
+      except jwt.ExpiredSignatureError:
+          # Handle expired session ID
+          return None
+      except jwt.InvalidTokenError:
+          # Handle invalid session ID
+          return None
+    else:
+      print('error')
