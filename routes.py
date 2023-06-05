@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from bson import ObjectId, json_util
-from flask import (Blueprint, request, url_for, jsonify)
+from flask import (Blueprint, session, request, url_for, jsonify)
 import google.oauth2.credentials
 from google.oauth2.credentials import Credentials
 from google.protobuf import json_format
@@ -15,6 +15,7 @@ from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
 import base64
+import sys
 
 load_dotenv()
 
@@ -100,6 +101,10 @@ def google_callback():
 
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
+  user = request.cookies.get('user')
+  print('request.cookies', request.cookies.get('connect.sid'))
+  session['userID'] = request.cookies.get('connect.sid')
+  print('session', session)
   id = '63e270c63fa2c1463717b406'
   shop = request.args.get('shop')
 
@@ -120,8 +125,6 @@ def google_accounts():
 
   refreshToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh')
   accessToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'access')
-
-  print({'refreshToken': refreshToken, 'accessToken': accessToken})
 
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
@@ -165,9 +168,11 @@ def google_accounts():
 
     try:
       resp = ga_service.search(request=req)
-    except GoogleAdsException as e:
-      print('error:', str(e))
+    except:
       continue
+    # except GoogleAdsException as e:
+    #   print('error:', str(e))
+    #   continue
 
     if resp:
       for row in resp:
@@ -327,21 +332,15 @@ def google_ads():
   
   try:
     response = ga_service.search(request=req)
-    # print('antes', response)
     
     metrics = {
       "id": "google-ads.ads-metrics",
       "metricsBreakdown": []
     }
 
-    total=0
-
     for row in response:
       json_str = json_format.MessageToJson(row)
       campaign = json.loads(json_str)
-
-      print(campaign)
-
       dateKey = None
 
       if is_single_day:
@@ -353,8 +352,6 @@ def google_ads():
         dateKey = campaign["segments"]["date"]
 
       dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
-
-      total+=int(campaign["metrics"]["costMicros"]) / 1000000
 
       if (dateExists):
         dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
@@ -368,13 +365,10 @@ def google_ads():
         }
 
         metrics["metricsBreakdown"].append(dataPoint)
-    
-    print(total)
       
     return metrics, 200
   
-  except Exception as e:
-    print(f"An error occurred: {str(e)}")
+  except:
     return "Something went wrong", 500
 
 def credentials_to_dict(credentials):
