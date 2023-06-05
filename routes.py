@@ -59,12 +59,12 @@ def google_callback():
   state = request.args.get('state')
   id = '63e270c63fa2c1463717b406'
 
-  print(state, id)
-
   flow = get_flow()
 
   authorization_response = request.url
-  authorization_response = authorization_response.replace('http', 'https')
+  print(authorization_response)
+  # authorization_response = authorization_response.replace('http', 'https')
+  print(authorization_response)
 
   flow.fetch_token(authorization_response=authorization_response)
 
