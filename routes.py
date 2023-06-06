@@ -39,11 +39,12 @@ fernet = Fernet(fernetKey)
 
 @routes.route('/', methods=['GET'])
 def index():
-  return 'ok'
+  return 'ok', 200
 
 @routes.route('/google/authorize', methods=['GET'])
 def google_authorize():
   state = request.args.get('state')
+  id = request.args.get('id')
 
   flow = get_flow()
 
@@ -58,21 +59,17 @@ def google_authorize():
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state = request.args.get('state')
-  sid = request.cookies.get('connect.sid')
+  id = request.args.get('id')
 
-  print('sid', sid)
-
-  decoded_user = decode_session_id(sid)
-  if decoded_user is not None:
-      user_id = decoded_user['user_id']
-      print(user_id)
+  print(id)
 
   flow = get_flow()
 
-  authorization_response = request.url
-  authorization_response = authorization_response.replace('http', 'https')
+  if os.environ.get('ENV') == 'development':
+    authorization_response = request.url.replace('http', 'https')
+  else:
+    authorization_response = request.url
 
-  #flow.fetch_token(authorization_response=request.url)
   flow.fetch_token(authorization_response=authorization_response)
 
   response = credentials_to_dict(flow.credentials)
@@ -110,14 +107,8 @@ def google_callback():
 
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
-  sid = request.cookies.get('user')
   id = request.args.get('id')
   shop = request.args.get('shop')
-
-  decoded_user = decode_session_id(sid)
-  if decoded_user is not None:
-      user_id = decoded_user['user_id']
-      print(user_id)
 
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
@@ -195,8 +186,8 @@ def google_accounts():
 
 @routes.route('/google/account/connect', methods=['POST'])
 def google_account_connect():
-  data = json.loads(request.get_data())
   id = request.args.get('id')
+  data = json.loads(request.get_data())
 
   user = json.loads(json_util.dumps((u for u in mongo.db.users.find({"_id": ObjectId(id)}))))[0]
 
@@ -267,10 +258,10 @@ def google_account_disconnect():
 
 @routes.route('/google/ads', methods=['post'])
 def google_ads():
-  id = request.args.get('id')
   start = request.args.get('start')
   end = request.args.get('end')
   shop = request.args.get('store')
+  id = request.args.get('id')
 
   if not shop:
     return ({'error': 'Missing store!'}), 400
@@ -283,8 +274,6 @@ def google_ads():
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
-  
-  print('id',id)
   
   user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
 
@@ -306,9 +295,17 @@ def google_ads():
   if not shopFound['google_client']:
     return ({'error': 'No client associated with this store'}), 404
   
+  # credentials = google.oauth2.credentials.Credentials(
+  #   get_token(reqShops = user_json['shops'], shopName = shop, type = 'access'),
+  #   refresh_token=get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh'),
+  #   token_uri='https://oauth2.googleapis.com/token',
+  #   client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+  #   client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
+  # )
+
   credentials = google.oauth2.credentials.Credentials(
-    get_token(reqShops = user_json['shops'], shopName = shop, type = 'access'),
-    refresh_token=get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh'),
+    '',
+    refresh_token='',
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -431,24 +428,3 @@ def get_flow():
 
 def encrypt_token(token):
   return fernet.encrypt(token.encode())
-
-
-
-def decode_session_id(sid):
-    session_secret = os.environ.get('FLASK_SECRET_KEY')
-
-    print('session_secret', session_secret)
-
-    if session_secret:
-      try:
-          decoded_token = jwt.decode(sid, session_secret, algorithms=['HS256'])
-          print('decoded_token', decoded_token)
-          return decoded_token
-      except jwt.ExpiredSignatureError:
-          # Handle expired session ID
-          return None
-      except jwt.InvalidTokenError:
-          # Handle invalid session ID
-          return None
-    else:
-      print('error')
