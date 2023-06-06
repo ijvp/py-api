@@ -111,6 +111,8 @@ def google_accounts():
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
 
+  print(id)
+
   user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
 
   if not user:
