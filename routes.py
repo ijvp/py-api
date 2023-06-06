@@ -42,7 +42,7 @@ def index():
 @routes.route('/google/authorize', methods=['GET'])
 def google_authorize():
   state = request.args.get('state')
-  id = request.args.get('id')
+  session['id'] = request.args.get('id')
 
   flow = get_flow()
 
@@ -105,7 +105,7 @@ def google_callback():
 
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
-  id = request.args.get('id')
+  id = session.get('id')
   shop = request.args.get('shop')
 
   if not id or not shop:
