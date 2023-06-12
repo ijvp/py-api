@@ -72,6 +72,8 @@ def google_callback():
 
   response = credentials_to_dict(flow.credentials)
 
+  print(response)
+
   user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
   
   user_json = json.loads(json_util.dumps(user))
@@ -262,6 +264,10 @@ def google_ads():
   end = request.args.get('end')
   shop = request.args.get('store')
   id = request.args.get('id')
+  access_token = request.args.get('access_token')
+  refresh_token = request.args.get('refresh_token')
+
+  print(start, end, shop, id)
 
   if not shop:
     return ({'error': 'Missing store!'}), 400
@@ -280,6 +286,7 @@ def google_ads():
   if not user:
     return ({'error': 'User not found!'}), 404
 
+  
   user_json = json.loads(json_util.dumps(user))
 
   if len(user_json) == 0:
@@ -292,8 +299,8 @@ def google_ads():
   if(shopFound == None):
     return ({'error': 'Store not found'}), 404
   
-  if not shopFound['google_client']:
-    return ({'error': 'No client associated with this store'}), 404
+  # if not shopFound['google_client']:
+  #   return ({'error': 'No client associated with this store'}), 404
   
   # credentials = google.oauth2.credentials.Credentials(
   #   get_token(reqShops = user_json['shops'], shopName = shop, type = 'access'),
@@ -304,8 +311,8 @@ def google_ads():
   # )
 
   credentials = google.oauth2.credentials.Credentials(
-    '',
-    refresh_token='',
+    access_token,
+    refresh_token=refresh_token,
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -428,3 +435,10 @@ def get_flow():
 
 def encrypt_token(token):
   return fernet.encrypt(token.encode())
+
+def is_valid_object_id(id_str):
+    try:
+        ObjectId(id_str)
+        return True
+    except (ValueError):
+        return False
