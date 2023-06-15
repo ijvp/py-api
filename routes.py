@@ -57,7 +57,7 @@ def google_authorize():
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state = request.args.get('state')
-  id = request.args.get('id')
+  id = session['id']
 
   print(id)
 
