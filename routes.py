@@ -66,53 +66,37 @@ def google_callback():
   state_str = request.args.get('state')
   state = json.loads(state_str)
 
-  print('state', state)
-
-  print({'state': state['store'], 'id': state['id']})
-
   flow = get_flow()
-
-  print('flow', flow)
 
   if os.environ.get('ENV') == 'development':
     authorization_response = request.url.replace('http', 'https')
   else:
     authorization_response = request.url
 
-    print('authorization_response', authorization_response)
-
   flow.fetch_token(authorization_response=authorization_response)
 
   response = credentials_to_dict(flow.credentials)
 
-  print('response', response)
-  print('ObjectId', ObjectId(state['id']))
-  print('mongo.db.users', mongo.db.users)
-
   try:
-    user = (u for u in mongo.db.users.find({"_id": state['id']}))
+    user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
   except Exception:
     return 'error', 500
   
-  print('user', user)
-  
   user_json = json.loads(json_util.dumps(user))
-
-  print('user_json', user_json)
 
   if len(user_json) == 0:
     return ({'error': 'User not found!'}), 404
 
   shop_index = None
-
   for i, shop in enumerate(user_json[0]['shops']):
-    if shop['name'] == state:
+
+    if shop['name'] == state['store']:
       shop_index = i
       break
 
   if shop_index is not None:
     result = mongo.db.users.update_one(
-      {'_id': ObjectId(id), 'shops.name': state['store']},
+      {'_id': ObjectId(state['id']), 'shops.name': state['store']},
       {'$set': {
           'shops.$.google_access_token': encrypt_token(response['token']), 
           'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
@@ -129,13 +113,11 @@ def google_callback():
 
 @routes.route('/google/accounts', methods=['get'])
 def google_accounts():
-  id = session.get('id')
-  shop = request.args.get('shop')
+  id = request.args.get('id')
+  shop = request.args.get('store')
 
   if not id or not shop:
     return ({'error': 'Missing required parameters.'}), 400
-
-  print(id)
 
   try:
     user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
@@ -188,7 +170,7 @@ def google_accounts():
         customer.resource_name,
         customer.descriptive_name
       FROM customer
-      WHERE customer.test_account != TRUE PARAMETERS include_drafts=false
+      WHERE customer.status = 'ENABLED'
     """
     
     req = client.get_type("SearchGoogleAdsRequest")
@@ -200,9 +182,6 @@ def google_accounts():
       resp = ga_service.search(request=req)
     except:
       continue
-    # except GoogleAdsException as e:
-    #   print('error:', str(e))
-    #   continue
 
     if resp:
       for row in resp:
@@ -292,8 +271,6 @@ def google_ads():
   id = request.args.get('id')
   access_token = request.args.get('access_token')
   refresh_token = request.args.get('refresh_token')
-
-  print(start, end, shop, id)
 
   if not shop:
     return ({'error': 'Missing store!'}), 400
