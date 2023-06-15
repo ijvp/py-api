@@ -90,12 +90,14 @@ def google_callback():
 
   try:
     user = (u for u in mongo.db.users.find({"_id": state['id']}))
-  except Exception as e:
-    return({'error': str(e)}), 500
+  except Exception:
+    return 'error', 500
   
   print('user', user)
   
   user_json = json.loads(json_util.dumps(user))
+
+  print('user_json', user_json)
 
   if len(user_json) == 0:
     return ({'error': 'User not found!'}), 404
