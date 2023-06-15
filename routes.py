@@ -63,7 +63,9 @@ def google_authorize():
 
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
-  state = request.args.get('state')
+  state_str = request.args.get('state')
+
+  state = json.loads(state_str)
 
   print('state', state)
   state = bytes(state, 'utf-8')
