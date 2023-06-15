@@ -50,6 +50,7 @@ def google_authorize():
     'id': id
   })
 
+  print('state oauth', state)
 
   flow = get_flow()
 
@@ -65,6 +66,8 @@ def google_authorize():
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state_str = request.args.get('state')
+
+  print('state_str', state_str)
 
   state = json.loads(state_str)
 
