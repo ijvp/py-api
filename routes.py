@@ -87,7 +87,7 @@ def google_callback():
 
   print('response', response)
   print('ObjectId', ObjectId(state['id']))
-  print('mongo.db.users', mongo.db.users.find())
+  print('mongo.db.users', mongo.db.users)
 
   try:
     user = (u for u in mongo.db.users.find({"_id": state['id']}))
