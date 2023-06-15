@@ -68,6 +68,8 @@ def google_callback():
 
   print('state', state)
 
+  print({'state': state['store', 'id': state['id']]})
+
   flow = get_flow()
 
   print('flow', flow)
@@ -85,12 +87,8 @@ def google_callback():
 
   print('response', response)
 
-  _id = ObjectId(state['id'])
-
-  print('_id', _id)
-
   try:
-    user = (u for u in mongo.db.users.find({"_id": _id}))
+    user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
   except Exception as e:
     return({'error': str(e)}), 500
   
