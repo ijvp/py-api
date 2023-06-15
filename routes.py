@@ -68,7 +68,7 @@ def google_callback():
 
   print('state', state)
 
-  print({'state': state['store', 'id': state['id']]})
+  print({'state': state['store'], 'id': state['id']})
 
   flow = get_flow()
 
