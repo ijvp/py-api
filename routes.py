@@ -72,11 +72,6 @@ def google_callback():
   state = json.loads(state_str)
 
   print('state', state)
-  state = bytes(state, 'utf-8')
-
-  print('state 2', state)
-  state = pickle.loads(state)
-  
 
   flow = get_flow()
 
