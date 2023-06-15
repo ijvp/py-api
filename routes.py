@@ -74,7 +74,11 @@ def google_callback():
 
   print(response)
 
-  user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  try:
+    user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  except Exception as e:
+    return({'error': str(e)}), 500
+  
   
   user_json = json.loads(json_util.dumps(user))
 
@@ -115,7 +119,10 @@ def google_accounts():
 
   print(id)
 
-  user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  try:
+    user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  except Exception as e:
+    return({'error': str(e)}), 500
 
   if not user:
     return ({'error': 'User not found.'}), 404
