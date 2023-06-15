@@ -163,6 +163,7 @@ def google_accounts():
         customer.resource_name,
         customer.descriptive_name
       FROM customer
+      WHERE customer.test_account != TRUE PARAMETERS include_drafts=false
     """
     
     req = client.get_type("SearchGoogleAdsRequest")
