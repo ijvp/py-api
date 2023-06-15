@@ -10,7 +10,7 @@ from flask_cors import CORS
 load_dotenv()
 
 application = Flask(__name__)
-CORS(application, resources={r"*": {"origins": "*"}})
+CORS(application, resources={r"*": {"origins": ["https://sharkboard.turbopartners.com.br/", "https://sharkboard-dev.turbopartners.com.br/", "http://localhost"]}})
 application.config["MONGO_URI"] = os.environ.get('DB_CONNECT')
 application.secret_key = os.environ.get('FLASK_SECRET_KEY')
 application.register_blueprint(routes)
