@@ -66,7 +66,9 @@ def google_callback():
   state = request.args.get('state')
 
   print('state', state)
+  state = bytes(state, 'utf-8')
 
+  print('state 2', state)
   state = pickle.loads(state)
   
 
