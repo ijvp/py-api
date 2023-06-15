@@ -52,11 +52,11 @@ def google_authorize():
 
   flow = get_flow()
 
-  authorization_url, state = flow.authorization_url(
+  authorization_url, store = flow.authorization_url(
     access_type='offline',
     approval_prompt="force",
     include_granted_scopes='true',
-    state=pickle.dumps(state)
+    state=store
 )
 
   return authorization_url
