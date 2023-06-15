@@ -86,9 +86,10 @@ def google_callback():
   response = credentials_to_dict(flow.credentials)
 
   print('response', response)
+  print('ObjectId', ObjectId(state['id']))
 
   try:
-    user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
+    user = (u for u in mongo.db.users.find({"_id": state['id']}))
   except Exception as e:
     return({'error': str(e)}), 500
   
