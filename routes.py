@@ -45,14 +45,15 @@ def google_authorize():
   store = request.args.get('store')
   id = request.args.get('id')
 
-  state = {
-    store: store,
-    id: id
-  }
+  state = json.dumps({
+    'store': store,
+    'id': id
+  })
+
 
   flow = get_flow()
 
-  authorization_url, state['store']= flow.authorization_url(
+  authorization_url, store = flow.authorization_url(
     access_type='offline',
     approval_prompt="force",
     include_granted_scopes='true',
