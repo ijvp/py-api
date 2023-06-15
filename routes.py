@@ -14,6 +14,7 @@ from pymongo import MongoClient
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
+import pickle
 import base64
 
 load_dotenv()
@@ -41,8 +42,13 @@ def index():
 
 @routes.route('/google/authorize', methods=['GET'])
 def google_authorize():
-  state = request.args.get('state')
-  session['id'] = request.args.get('id')
+  store = request.args.get('store')
+  id = request.args.get('id')
+
+  state = {
+    store: store,
+    id: id
+  }
 
   flow = get_flow()
 
@@ -50,16 +56,19 @@ def google_authorize():
     access_type='offline',
     approval_prompt="force",
     include_granted_scopes='true',
-    state=state)
+    state=pickle.dumps(state)
+)
 
   return authorization_url
 
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state = request.args.get('state')
-  id = session.get('id')
 
-  print(id)
+  print('state', state)
+
+  state = pickle.loads(state)
+  
 
   flow = get_flow()
 
@@ -72,10 +81,14 @@ def google_callback():
 
   response = credentials_to_dict(flow.credentials)
 
-  print(response)
+  print('response', response)
+
+  _id = ObjectId(state['id'])
+
+  print('_id', _id)
 
   try:
-    user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+    user = (u for u in mongo.db.users.find({"_id": _id}))
   except Exception as e:
     return({'error': str(e)}), 500
   
@@ -94,7 +107,7 @@ def google_callback():
 
   if shop_index is not None:
     result = mongo.db.users.update_one(
-      {'_id': ObjectId(id), 'shops.name': state},
+      {'_id': ObjectId(id), 'shops.name': state['store']},
       {'$set': {
           'shops.$.google_access_token': encrypt_token(response['token']), 
           'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
