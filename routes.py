@@ -50,8 +50,6 @@ def google_authorize():
     'id': id
   })
 
-  print('state oauth', state)
-
   flow = get_flow()
 
   authorization_url, store = flow.authorization_url(
@@ -66,19 +64,20 @@ def google_authorize():
 @routes.route('/google/callback', methods=['GET'])
 def google_callback():
   state_str = request.args.get('state')
-
-  print('state_str', state_str)
-
   state = json.loads(state_str)
 
   print('state', state)
 
   flow = get_flow()
 
+  print('flow', flow)
+
   if os.environ.get('ENV') == 'development':
     authorization_response = request.url.replace('http', 'https')
   else:
     authorization_response = request.url
+
+    print('authorization_response', authorization_response)
 
   flow.fetch_token(authorization_response=authorization_response)
 
