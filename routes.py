@@ -170,7 +170,7 @@ def google_accounts():
         customer.resource_name,
         customer.descriptive_name
       FROM customer
-      WHERE customer.status = 'ENABLED'
+      WHERE customer.status = ENABLED
     """
     
     req = client.get_type("SearchGoogleAdsRequest")
@@ -269,8 +269,8 @@ def google_ads():
   end = request.args.get('end')
   shop = request.args.get('store')
   id = request.args.get('id')
-  access_token = request.args.get('access_token')
-  refresh_token = request.args.get('refresh_token')
+  access_token = request.form.get('access_token')
+  refresh_token = request.form.get('refresh_token')
 
   if not shop:
     return ({'error': 'Missing store!'}), 400
@@ -385,7 +385,7 @@ def google_ads():
         }
 
         metrics["metricsBreakdown"].append(dataPoint)
-      
+
     return metrics, 200
   
   except:
