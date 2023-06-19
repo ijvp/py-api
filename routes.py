@@ -4,18 +4,21 @@ import os
 from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 from bson import ObjectId, json_util
-from flask import (Blueprint, session, request, url_for, jsonify)
+from flask import (Blueprint, request, url_for)
 import google.oauth2.credentials
-from google.oauth2.credentials import Credentials
 from google.protobuf import json_format
 from extentions.database import mongo
 from datetime import datetime
-from pymongo import MongoClient
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
-import pickle
 import base64
+import redis
+
+redis_host = 'localhost'
+redis_port = 6379
+
+r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
 load_dotenv()
 
@@ -38,6 +41,8 @@ fernet = Fernet(fernetKey)
 
 @routes.route('/', methods=['GET'])
 def index():
+  msg = r.keys(pattern="*")
+  print(msg)
   return 'ok', 200
 
 @routes.route('/google/authorize', methods=['GET'])
@@ -57,7 +62,7 @@ def google_authorize():
     approval_prompt="force",
     include_granted_scopes='true',
     state=state
-)
+  )
 
   return authorization_url
 
@@ -267,12 +272,11 @@ def google_account_disconnect():
 def google_ads():
   start = request.args.get('start')
   end = request.args.get('end')
-  shop = request.args.get('store')
-  id = request.args.get('id')
-  access_token = request.form.get('access_token')
-  refresh_token = request.form.get('refresh_token')
+  store = request.args.get('store')
 
-  if not shop:
+  print(start, end, store)
+
+  if not store:
     return ({'error': 'Missing store!'}), 400
   
   if not start or not end: 
@@ -284,38 +288,18 @@ def google_ads():
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
   
-  user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
+  idFound = r.hgetall(f"google_ads_account:{store}",)
 
-  if not user:
-    return ({'error': 'User not found!'}), 404
+  storeFound = r.hgetall(f"store:{store}")
 
-  
-  user_json = json.loads(json_util.dumps(user))
-
-  if len(user_json) == 0:
-    return ({'error': 'User not found!'}), 404
-  
-  user_json = user_json[0]
-
-  shopFound = next((obj for obj in user_json['shops'] if obj["name"] == shop), None)
-
-  if(shopFound == None):
+  if(storeFound == None):
     return ({'error': 'Store not found'}), 404
   
-  # if not shopFound['google_client']:
-  #   return ({'error': 'No client associated with this store'}), 404
-  
-  # credentials = google.oauth2.credentials.Credentials(
-  #   get_token(reqShops = user_json['shops'], shopName = shop, type = 'access'),
-  #   refresh_token=get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh'),
-  #   token_uri='https://oauth2.googleapis.com/token',
-  #   client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-  #   client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
-  # )
+  print({'AccessToken': storeFound['googleAccessToken'], 'RefreshToken': storeFound['googleRefreshToken'], 'id': idFound['id']})
 
   credentials = google.oauth2.credentials.Credentials(
-    access_token,
-    refresh_token=refresh_token,
+    storeFound['googleAccessToken'],
+    refresh_token=storeFound['googleRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -347,7 +331,7 @@ def google_ads():
   ga_service = client.get_service(name="GoogleAdsService")
   
   req = client.get_type("SearchGoogleAdsRequest")
-  req.customer_id = shopFound['google_client']['id']
+  req.customer_id = idFound['id']
   req.query = query
   
   try:

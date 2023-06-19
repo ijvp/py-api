@@ -11,13 +11,12 @@ load_dotenv()
 
 application = Flask(__name__)
 
-CORS(application, resources={r"*": {"origins": ["https://sharkboard.turbopartners.com.br/", "https://sharkboard-dev.turbopartners.com.br/", "http://localhost:3000"]}})
+CORS(application, resources={r"*": {"origins": "*"}})
 application.config["MONGO_URI"] = os.environ.get('DB_CONNECT')
 application.config['MONGO_DBNAME'] = os.environ.get('DB_NAME')
 application.secret_key = os.environ.get('FLASK_SECRET_KEY')
 application.register_blueprint(routes)
-
 database.init_app(application)
 
 if __name__ == '__main__':
-  application.run(host=os.environ.get('HOST'), port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'))
+  application.run(application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
