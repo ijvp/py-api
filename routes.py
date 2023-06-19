@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 import base64
 import redis
 
-redis_host = 'localhost'
-redis_port = 6379
+redis_host = os.environ.get('REDIS_HOST')
+redis_port = os.environ.get('REDIS_PORT')
 
 r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
