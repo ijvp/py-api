@@ -14,11 +14,15 @@ from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
 import base64
 import redis
+from redis.cluster import RedisCluster
 
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
-r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+if os.environ.get('ENV') == 'development':
+  r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+else:
+  r = RedisCluster(host=redis_host, port=redis_port, decode_responses=True, ssl=True)
 
 load_dotenv()
 
