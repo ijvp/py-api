@@ -82,6 +82,8 @@ def google_callback():
 
   response = credentials_to_dict(flow.credentials)
 
+  print(response)
+
   try:
     user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
   except Exception:
@@ -294,9 +296,8 @@ def google_ads():
 
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
-  
-  print({'AccessToken': storeFound['googleAccessToken'], 'RefreshToken': storeFound['googleRefreshToken'], 'id': idFound['id']})
 
+  
   credentials = google.oauth2.credentials.Credentials(
     storeFound['googleAccessToken'],
     refresh_token=storeFound['googleRefreshToken'],
@@ -309,6 +310,10 @@ def google_ads():
     credentials=credentials,
     developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
   )
+
+  print(client)
+
+  
 
   difference = end_date - start_date
 
@@ -331,9 +336,9 @@ def google_ads():
   ga_service = client.get_service(name="GoogleAdsService")
   
   req = client.get_type("SearchGoogleAdsRequest")
-  req.customer_id = idFound['id']
-  req.query = query
-  
+  req.customer_id = idFound
+  req.query = query  
+
   try:
     response = ga_service.search(request=req)
     
