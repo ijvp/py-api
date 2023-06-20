@@ -14,7 +14,7 @@ from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
 import base64
 import redis
-from redis.cluster import RedisCluster
+from redis.cluster import ( RedisCluster, ClusterNode)
 load_dotenv()
 
 redis_host = os.environ.get('REDIS_HOST')
@@ -29,6 +29,8 @@ else:
   print("prod")
   r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None)
 
+if r.ping():
+  print('Redis Connected')
 print(r)
 
 routes = Blueprint("routes", __name__)
