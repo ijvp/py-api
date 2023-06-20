@@ -282,7 +282,7 @@ def google_ads():
   end = request.args.get('end')
   store = request.args.get('store')
 
-  print(start, end, store)
+  print('start, end, store', start, end, store)
 
   if not store:
     return ({'error': 'Missing store!'}), 400
@@ -303,6 +303,8 @@ def google_ads():
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
 
+  print('idFound', idFound)
+  print('storeFound', storeFound)
   
   credentials = google.oauth2.credentials.Credentials(
     storeFound['googleAccessToken'],

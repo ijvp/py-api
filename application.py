@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from routes import routes
 from extentions import database
 from flask_cors import CORS
+import logging
+import sys
 
 load_dotenv()
 
@@ -16,6 +18,7 @@ application.config["MONGO_URI"] = os.environ.get('DB_CONNECT')
 application.config['MONGO_DBNAME'] = os.environ.get('DB_NAME')
 application.secret_key = os.environ.get('FLASK_SECRET_KEY')
 application.register_blueprint(routes)
+application.logger.addHandler(logging.StreamHandler(sys.stdout))
 database.init_app(application)
 
 if __name__ == '__main__':
