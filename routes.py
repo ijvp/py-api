@@ -23,15 +23,14 @@ redis_port = os.environ.get('REDIS_PORT')
 startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
 
 if os.environ.get('ENV') == 'development':
-  print("dev")
+  print('dev')
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
-  print("prod")
-  startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
-  r = redis.RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None)
-
+  print('prod')
+  r = redis.RedisCluster(host=f'redis://{redis_host}', port=30001, decode_responses=True, ssl=True, ssl_cert_reqs=None)
 if r.ping():
-  print('Redis Connected!')
+  print('Connected to Redis')
+        
 print(r)
 
 routes = Blueprint("routes", __name__)
