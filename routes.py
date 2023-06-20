@@ -15,18 +15,19 @@ from datetime import datetime, timedelta
 import base64
 import redis
 from redis.cluster import RedisCluster
+load_dotenv()
 
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
+
+startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
 
 if os.environ.get('ENV') == 'development':
   print("dev")
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
   print("prod")
-  r = RedisCluster(host=redis_host, port=redis_port, decode_responses=True, ssl=True, ssl_cert_reqs=None)
-
-load_dotenv()
+  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None)
 
 routes = Blueprint("routes", __name__)
 
