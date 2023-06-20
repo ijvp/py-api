@@ -21,13 +21,14 @@ redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
 startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
+r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 
-if os.environ.get('ENV') == 'development':
-  print("dev")
-  r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
-else:
-  print("prod")
-  r = redis.RedisCluster(startup_nodes=[{ "host": redis_host, "port": redis_port, "name": "primary cluster" }], decode_responses=True, ssl=True, ssl_cert_reqs=None)
+# if os.environ.get('ENV') == 'development':
+#   print("dev")
+#   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+# else:
+#   print("prod")
+#   r = redis.RedisCluster(startup_nodes=[{ "host": redis_host, "port": redis_port,  "name": "" }], decode_responses=True, ssl=True, ssl_cert_reqs=None)
 
 if r.ping():
   print('Redis Connected')
