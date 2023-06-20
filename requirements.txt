@@ -21,5 +21,6 @@ pyparsing
 PyYAML
 requests-oauthlib
 flask-cors
-redis==4.1.4
-redis-om==0.0.20
+redis
+redis-om
+redis-py-cluster

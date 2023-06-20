@@ -14,21 +14,21 @@ from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
 import base64
 import redis
-from redis.cluster import ( RedisCluster, ClusterNode)
+from rediscluster import RedisCluster
 load_dotenv()
 
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
 startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
-r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+print(startup_nodes)
 
-# if os.environ.get('ENV') == 'development':
-#   print("dev")
-#   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
-# else:
-#   print("prod")
-#   r = redis.RedisCluster(startup_nodes=[{ "host": redis_host, "port": redis_port,  "name": "" }], decode_responses=True, ssl=True, ssl_cert_reqs=None)
+if os.environ.get('ENV') == 'development':
+  print("dev")
+  r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+else:
+  print("prod")
+  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
 
 if r.ping():
   print('Redis Connected')
