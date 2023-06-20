@@ -22,7 +22,7 @@ redis_port = os.environ.get('REDIS_PORT')
 if os.environ.get('ENV') == 'development':
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
-  r = RedisCluster(host=redis_host, port=redis_port, decode_responses=True, ssl=True)
+  r = RedisCluster(host=redis_host, port=redis_port, decode_responses=True, ssl=True, ssl_cert_reqs=None)
 
 load_dotenv()
 
