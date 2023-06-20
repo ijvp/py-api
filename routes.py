@@ -116,7 +116,7 @@ def google_callback():
     
   return ({'error': 'shop not found!'}), 404
 
-@routes.route('/google/accounts', methods=['get'])
+@routes.route('/google/accounts', methods=['GET'])
 def google_accounts():
   id = request.args.get('id')
   shop = request.args.get('store')
@@ -268,7 +268,7 @@ def google_account_disconnect():
 
   return json.dumps(response)
 
-@routes.route('/google/ads', methods=['post'])
+@routes.route('/google/ads', methods=['POST'])
 def google_ads():
   start = request.args.get('start')
   end = request.args.get('end')
@@ -288,7 +288,7 @@ def google_ads():
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
   
-  idFound = r.hgetall(f"google_ads_account:{store}",)
+  idFound = r.hget(f"google_ads_account:{store}", 'id')
 
   storeFound = r.hgetall(f"store:{store}")
 
