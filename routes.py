@@ -29,6 +29,8 @@ else:
   print("prod")
   r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None)
 
+print(r)
+
 routes = Blueprint("routes", __name__)
 
 CLIENT_SECRETS_FILE = "credentials.json"
