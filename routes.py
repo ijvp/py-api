@@ -20,7 +20,7 @@ load_dotenv()
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
-startup_nodes=[{ "host": f"redis://{redis_host}", "port": redis_port}]
+startup_nodes=[{ "host": redis_host, "port": redis_port}]
 print(startup_nodes)
 
 if os.environ.get('ENV') == 'development':
