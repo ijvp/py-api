@@ -22,7 +22,6 @@ redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
 startup_nodes=[{ "host": redis_host, "port": redis_port}]
-print(startup_nodes)
 
 if os.environ.get('ENV') == 'development':
   print("dev")
@@ -295,13 +294,9 @@ def google_ads():
   
   expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
-  print('expiryDate', expiryDate)
-
   if expiryDate == True:
-    print('access token still valid')
     accessToken = storeFound['googleAccessToken']
   else:
-    print('access token revalidated')
     accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
@@ -458,7 +453,6 @@ def refresh_access_token(refresh_token):
         data = response.json()
         new_access_token = data['access_token']
         expires_in = data['expires_in']
-        print("New access token:", new_access_token)
 
         return {
           'new_access_token': new_access_token,
