@@ -292,14 +292,24 @@ def google_ads():
 
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
+  
+  expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
-  print('idFound', idFound)
-  print('storeFound', storeFound)
+  print('expiryDate', expiryDate)
 
-  accessToken = refresh_access_token(storeFound['googleRefreshToken'])
+  if expiryDate == True:
+    print('access token still valid')
+    accessToken = storeFound['googleAccessToken']
+  else:
+    print('access token revalidated')
+    accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
-  if(accessToken == 'error'):
-    return ({'error': 'error when authenticating store'}), 401
+    if(accessToken == 'error'):
+      return ({'error': 'error when authenticating store'}), 401
+    
+    r.hset(f"store:{store}", 'expiryDate', int(storeFound['expiryDate']) + int(accessToken['expires_in']))
+    
+    accessToken = accessToken['new_access_token']
   
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
@@ -433,8 +443,6 @@ def is_valid_object_id(id_str):
         return True
     except (ValueError):
         return False
-    
-import requests
 
 def refresh_access_token(refresh_token):
     token_endpoint = 'https://oauth2.googleapis.com/token'
@@ -452,6 +460,21 @@ def refresh_access_token(refresh_token):
         expires_in = data['expires_in']
         print("New access token:", new_access_token)
 
-        return new_access_token
+        return {
+          'new_access_token': new_access_token,
+          'expires_in': expires_in
+        }
     else:
         return 'error'
+
+def convert_timestamp_to_date(timestamp):
+    if isinstance(timestamp, str):
+        timestamp = int(timestamp)
+
+    date = datetime.fromtimestamp(timestamp)
+
+    current_datetime = datetime.now()
+
+    formatted_date = date.strftime('%Y-%m-%d %H:%M:%S')
+
+    return formatted_date, current_datetime < date
