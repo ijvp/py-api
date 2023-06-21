@@ -132,32 +132,20 @@ def google_callback():
 @routes.route('/google/accounts', methods=['GET'])
 def google_accounts():
   id = request.args.get('id')
-  shop = request.args.get('store')
+  store = request.args.get('store')
 
-  if not id or not shop:
+  if not id or not store:
     return ({'error': 'Missing required parameters.'}), 400
-
-  try:
-    user = (u for u in mongo.db.users.find({"_id": ObjectId(id)}))
-  except Exception as e:
-    return({'error': str(e)}), 500
-
-  if not user:
-    return ({'error': 'User not found.'}), 404
-
-  user_json = json.loads(json_util.dumps(user))
-
-  if len(user_json) == 0:
-    return ({'error': 'User not found!'}), 404
   
-  user_json = user_json[0]
+  storeFound = r.hgetall(f"store:{store}")
 
-  refreshToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'refresh')
-  accessToken = get_token(reqShops = user_json['shops'], shopName = shop, type = 'access')
+  idFound = r.hget(f"google_ads_account:{store}", 'id')
+
+  print(storeFound)
 
   credentials = google.oauth2.credentials.Credentials(
-    accessToken,
-    refresh_token=refreshToken,
+    storeFound['googleAccessToken'],
+    refresh_token=storeFound['googleRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -183,12 +171,7 @@ def google_accounts():
     ga_service = client.get_service(name="GoogleAdsService")
 
     query = """
-      SELECT
-        customer.id,
-        customer.resource_name,
-        customer.descriptive_name
-      FROM customer
-      WHERE customer.status = ENABLED
+      SELECT customer.id, customer.resource_name, customer.descriptive_name FROM customer WHERE customer.status = 'ENABLED' LIMIT 250
     """
     
     req = client.get_type("SearchGoogleAdsRequest")
@@ -283,9 +266,10 @@ def google_account_disconnect():
 
 @routes.route('/google/ads', methods=['POST'])
 def google_ads():
-  start = request.args.get('start')
-  end = request.args.get('end')
-  store = request.args.get('store')
+  data = json.loads(request.get_data())
+  start = data['start']
+  end = data['end']
+  store = data['store']
 
   print('start, end, store', start, end, store)
 
@@ -310,9 +294,14 @@ def google_ads():
 
   print('idFound', idFound)
   print('storeFound', storeFound)
+
+  accessToken = refresh_access_token(storeFound['googleRefreshToken'])
+
+  if(accessToken == 'error'):
+    return ({'error': 'error when authenticating store'}), 401
   
   credentials = google.oauth2.credentials.Credentials(
-    storeFound['googleAccessToken'],
+    accessToken,
     refresh_token=storeFound['googleRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -323,10 +312,6 @@ def google_ads():
     credentials=credentials,
     developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
   )
-
-  print(client)
-
-  
 
   difference = end_date - start_date
 
@@ -447,3 +432,25 @@ def is_valid_object_id(id_str):
         return True
     except (ValueError):
         return False
+    
+import requests
+
+def refresh_access_token(refresh_token):
+    token_endpoint = 'https://oauth2.googleapis.com/token'
+    payload = {
+        'client_id': os.environ.get("GOOGLE_CLIENT_ID"),
+        'client_secret': os.environ.get("GOOGLE_CLIENT_SECRET"),
+        'refresh_token': refresh_token,
+        'grant_type': 'refresh_token'
+    }
+
+    response = requests.post(token_endpoint, data=payload)
+    if response.status_code == 200:
+        data = response.json()
+        new_access_token = data['access_token']
+        expires_in = data['expires_in']
+        print("New access token:", new_access_token)
+
+        return new_access_token
+    else:
+        return 'error'
