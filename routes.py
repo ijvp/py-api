@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import base64
 import redis
 from rediscluster import RedisCluster
+import requests
 load_dotenv()
 
 redis_host = os.environ.get('REDIS_HOST')
