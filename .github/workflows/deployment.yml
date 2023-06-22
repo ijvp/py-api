@@ -2,11 +2,10 @@ name: Deploy to Amazon Lightsail
 
 on:
   push:
-    branches: [production]
+    branches: [development]
 
 env:
-  NODE_ENV: 'production'
-  SERVICE_NAME: 'NOME_SERVICO'
+  SERVICE_NAME: 'pyboard-container-service-dev'
 
 jobs:
   build:
@@ -30,7 +29,7 @@ jobs:
       - name: Build, tag, and push image to Amazon ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: NOME_REPOSITORIO
+          ECR_REPOSITORY: pyboard-api
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
@@ -44,14 +43,14 @@ jobs:
           chmod +x /usr/local/bin/lightsailctl
       - name: Release to Amazon Lightsail
         env:
-          CONTAINER_SERVICE_NAME: service-${{ env.SERVICE_NAME }}
+          CONTAINER_SERVICE_NAME: ${{ env.SERVICE_NAME }}
         run: |
           echo "Releasing to Amazon Lightsail"
           # upload the docker image for this pipeline
           aws lightsail push-container-image \
             --service-name $CONTAINER_SERVICE_NAME  \
             --label ${{ env.SERVICE_NAME }}-latest  \
-            --image 857298631031.dkr.ecr.us-east-1.amazonaws.com/NOME_REPOSITORIO:${{ github.sha }}
+            --image 857298631031.dkr.ecr.us-east-1.amazonaws.com/pyboard-api:${{ github.sha }}
           # get uploaded image (its different every time)
           IMAGE_TAG=$(aws lightsail get-container-images --service $CONTAINER_SERVICE_NAME | jq -r .containerImages[0].image)
           # create a deployment with uploaded docker image
@@ -60,19 +59,16 @@ jobs:
             --containers "{
               \"$CONTAINER_SERVICE_NAME\": {
                 \"image\": \"$IMAGE_TAG\",
-                \"environment\": {
-                  \"NODE_ENV\": \"NOME_AMBIENTE\"
-                },
                 \"ports\": {
-                  \"NUMERO_PORTA\": \"HTTP\"
+                  \"8080\": \"HTTP\"
                 }
               }
             }" \
             --public-endpoint "{
               \"containerName\": \"$CONTAINER_SERVICE_NAME\",
-              \"containerPort\": NUMERO_PORTA,
+              \"containerPort\": 8080,
               \"healthCheck\": {
-                \"path\": \"/health/\",
+                \"path\": \"/\",
                 \"intervalSeconds\": 10
               }
             }"
