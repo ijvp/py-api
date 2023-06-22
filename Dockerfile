@@ -1,6 +1,8 @@
 FROM python:3
 
-WORKDIR /app
+WORKDIR /user/app
+
+COPY application.py ./
 
 RUN pip install -r requirements.txt
 
