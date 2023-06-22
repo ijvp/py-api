@@ -2,7 +2,7 @@ FROM python:3
 
 WORKDIR /user/app
 
-COPY application.py ./
+COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
