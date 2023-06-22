@@ -93,8 +93,6 @@ def google_callback():
 
   response = credentials_to_dict(flow.credentials)
 
-  print(response)
-
   try:
     user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
   except Exception:
@@ -139,12 +137,26 @@ def google_accounts():
   
   storeFound = r.hgetall(f"store:{store}")
 
-  idFound = r.hget(f"google_ads_account:{store}", 'id')
+  expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
-  print(storeFound)
+  if expiryDate["isValid"] == True:
+    accessToken = storeFound['googleAccessToken']
+    print('same')
+  else:
+    print('new')
+    accessToken = refresh_access_token(storeFound['googleRefreshToken'])
+
+    if(accessToken == 'error'):
+      return ({'error': 'error when authenticating store'}), 401
+    
+    r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
+
+    accessToken = accessToken['new_access_token']
+
+    r.hset(f"store:{store}", 'googleAccessToken', accessToken)
 
   credentials = google.oauth2.credentials.Credentials(
-    storeFound['googleAccessToken'],
+    accessToken,
     refresh_token=storeFound['googleRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -173,7 +185,7 @@ def google_accounts():
     query = """
       SELECT customer.id, customer.resource_name, customer.descriptive_name FROM customer WHERE customer.status = 'ENABLED' LIMIT 250
     """
-    
+  
     req = client.get_type("SearchGoogleAdsRequest")
     req.customer_id = userId
     req.query = query
@@ -271,8 +283,6 @@ def google_ads():
   end = data['end']
   store = data['store']
 
-  print('start, end, store', start, end, store)
-
   if not store:
     return ({'error': 'Missing store!'}), 400
   
@@ -294,17 +304,21 @@ def google_ads():
   
   expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
-  if expiryDate == True:
+  if expiryDate["isValid"] == True:
+    print('same')
     accessToken = storeFound['googleAccessToken']
   else:
+    print('new')
     accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
     
-    r.hset(f"store:{store}", 'expiryDate', int(storeFound['expiryDate']) + int(accessToken['expires_in']))
-    
+    r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
+
     accessToken = accessToken['new_access_token']
+
+    r.hset(f"store:{store}", 'googleAccessToken', accessToken)
   
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
@@ -463,7 +477,7 @@ def refresh_access_token(refresh_token):
 
 def convert_timestamp_to_date(timestamp):
     if isinstance(timestamp, str):
-        timestamp = int(timestamp)
+      timestamp = int(timestamp)
 
     date = datetime.fromtimestamp(timestamp)
 
@@ -471,4 +485,4 @@ def convert_timestamp_to_date(timestamp):
 
     formatted_date = date.strftime('%Y-%m-%d %H:%M:%S')
 
-    return formatted_date, current_datetime < date
+    return ({"data": formatted_date, "isValid": current_datetime < date})
