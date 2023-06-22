@@ -50,7 +50,7 @@ jobs:
           aws lightsail push-container-image \
             --service-name $CONTAINER_SERVICE_NAME  \
             --label ${{ env.SERVICE_NAME }}-latest  \
-            --image 857298631031.dkr.ecr.us-east-1.amazonaws.com/pyboard-api:${{ github.sha }}
+            --image 548673342488.dkr.ecr.us-east-1.amazonaws.com/pyboard-api:${{ github.sha }}
           # get uploaded image (its different every time)
           IMAGE_TAG=$(aws lightsail get-container-images --service $CONTAINER_SERVICE_NAME | jq -r .containerImages[0].image)
           # create a deployment with uploaded docker image
