@@ -45,7 +45,7 @@ API_VERSION = 'v2'
 
 fernetKey = os.environ.get('FERNET_KEY')
 
-if fernetKey is None:
+if fernetKey is None: 
   raise ValueError("FERNET_KEY environment variable is not set.")
 
 fernet = Fernet(fernetKey)
