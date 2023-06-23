@@ -20,7 +20,6 @@ application.secret_key = os.environ.get('FLASK_SECRET_KEY')
 application.register_blueprint(routes)
 application.logger.addHandler(logging.StreamHandler(sys.stdout))
 database.init_app(application)
-print('REDIS_PORT', os.environ.get('REDIS_PORT'))
 
 if __name__ == '__main__':
   application.run(application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
