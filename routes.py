@@ -28,7 +28,7 @@ if os.environ.get('ENV') == 'development':
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
   print("prod")
-  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
+  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True, db=0)
 
 if r.ping():
   print('Redis Connected')
