@@ -21,14 +21,14 @@ load_dotenv()
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
-startup_nodes=[{ "host": redis_host, "port": redis_port}]
+startup_nodes=[{ "host": redis_host, "port": redis_port, "db": 0}]
 
 if os.environ.get('ENV') == 'development':
   print("dev")
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
   print("prod")
-  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True, db=0)
+  r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
 
 if r.ping():
   print('Redis Connected')
