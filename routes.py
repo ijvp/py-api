@@ -54,8 +54,6 @@ fernet = Fernet(fernetKey)
 
 @routes.route('/', methods=['GET'])
 def index():
-  msg = r.keys(pattern="*")
-  print(msg)
   return 'ok', 200
 
 @routes.route('/google/authorize', methods=['GET'])
