@@ -73,8 +73,7 @@ jobs:
               }
             }"
       - name: install redis
-        uses: actions/checkout@v3
-              shogo82148/actions-setup-redis@v1
+        uses: shogo82148/actions-setup-redis@v1
         with:
           redis-version: '7.x'
           run: redis-cli ping
