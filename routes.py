@@ -86,48 +86,50 @@ def google_callback():
 
   flow = get_flow()
 
-  if os.environ.get('ENV') == 'development':
-    authorization_response = request.url.replace('http', 'https')
-  else:
-    authorization_response = request.url
+  return state, 200
 
-  flow.fetch_token(authorization_response=authorization_response)
+  # if os.environ.get('ENV') == 'development':
+  #   authorization_response = request.url.replace('http', 'https')
+  # else:
+  #   authorization_response = request.url
 
-  response = credentials_to_dict(flow.credentials)
+  # flow.fetch_token(authorization_response=authorization_response)
 
-  try:
-    user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
-  except Exception:
-    return 'error', 500
+  # response = credentials_to_dict(flow.credentials)
+
+  # try:
+  #   user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
+  # except Exception:
+  #   return 'error', 500
   
-  user_json = json.loads(json_util.dumps(user))
+  # user_json = json.loads(json_util.dumps(user))
 
-  if len(user_json) == 0:
-    return ({'error': 'User not found!'}), 404
+  # if len(user_json) == 0:
+  #   return ({'error': 'User not found!'}), 404
 
-  shop_index = None
-  for i, shop in enumerate(user_json[0]['shops']):
+  # shop_index = None
+  # for i, shop in enumerate(user_json[0]['shops']):
 
-    if shop['name'] == state['store']:
-      shop_index = i
-      break
+  #   if shop['name'] == state['store']:
+  #     shop_index = i
+  #     break
 
-  if shop_index is not None:
-    result = mongo.db.users.update_one(
-      {'_id': ObjectId(state['id']), 'shops.name': state['store']},
-      {'$set': {
-          'shops.$.google_access_token': encrypt_token(response['token']), 
-          'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
-        }
-      }
-    )
+  # if shop_index is not None:
+  #   result = mongo.db.users.update_one(
+  #     {'_id': ObjectId(state['id']), 'shops.name': state['store']},
+  #     {'$set': {
+  #         'shops.$.google_access_token': encrypt_token(response['token']), 
+  #         'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
+  #       }
+  #     }
+  #   )
 
-    if result.raw_result['nModified'] == 0:
-      return ({'error': 'Shop cannot be updated!'}), 400
+  #   if result.raw_result['nModified'] == 0:
+  #     return ({'error': 'Shop cannot be updated!'}), 400
 
-    return ({'message': 'Shop updated!'}), 200
+  #   return ({'message': 'Shop updated!'}), 200
     
-  return ({'error': 'shop not found!'}), 404
+  # return ({'error': 'shop not found!'}), 404
 
 @routes.route('/google/accounts', methods=['GET'])
 def google_accounts():
@@ -211,72 +213,76 @@ def google_account_connect():
   id = request.args.get('id')
   data = json.loads(request.get_data())
 
-  user = json.loads(json_util.dumps((u for u in mongo.db.users.find({"_id": ObjectId(id)}))))[0]
+  return data, 200
 
-  shopExists = None
+  # user = json.loads(json_util.dumps((u for u in mongo.db.users.find({"_id": ObjectId(id)}))))[0]
 
-  for shop in user['shops']:
-    if shop['name'] == data['store']:
-      shopExists = shop
+  # shopExists = None
 
-  if shopExists is None:
-    return ({'error': 'Shop not found.'}), 404
+  # for shop in user['shops']:
+  #   if shop['name'] == data['store']:
+  #     shopExists = shop
+
+  # if shopExists is None:
+  #   return ({'error': 'Shop not found.'}), 404
   
-  client = data['client']
+  # client = data['client']
 
-  result = mongo.db.users.update_one(
-    {'_id': ObjectId(id), 'shops.name': data['store']},
-    {'$set': {
-        'shops.$.google_client.id': client['id'], 
-        'shops.$.google_client.name': client['descriptive_name']
-      }
-    }
-  )
+  # result = mongo.db.users.update_one(
+  #   {'_id': ObjectId(id), 'shops.name': data['store']},
+  #   {'$set': {
+  #       'shops.$.google_client.id': client['id'], 
+  #       'shops.$.google_client.name': client['descriptive_name']
+  #     }
+  #   }
+  # )
 
-  if result.modified_count <= 0:
-    response = { 
-      "success": False, 
-      "message": "Update failed or did not modify any documents."
-    }
+  # if result.modified_count <= 0:
+  #   response = { 
+  #     "success": False, 
+  #     "message": "Update failed or did not modify any documents."
+  #   }
 
-    return json.dumps(response)
+  #   return json.dumps(response)
   
-  response = { 
-    "success": True, 
-    "message": f"Google Ads account {client['descriptive_name']} added to {data['store']}"
-  }
+  # response = { 
+  #   "success": True, 
+  #   "message": f"Google Ads account {client['descriptive_name']} added to {data['store']}"
+  # }
 
-  return json.dumps(response)
+  # return json.dumps(response)
 
 @routes.route('/google/account/disconnect', methods=['GET'])
 def google_account_disconnect():
   shop = request.args.get('shop')
   id = request.args.get('id')
 
-  result = mongo.db.users.update_one(
-    {'_id': ObjectId(id), 'shops.name': shop},
-    {'$unset': {
-        "shops.$.google_client": 1,
-        "shops.$.google_access_token": 1,
-        "shops.$.google_refresh_token": 1
-      }
-    }
-  )
+  return 'ok', 200
 
-  if result.modified_count <= 0:
-    response = { 
-      "success": False, 
-      "message": "Update failed or did not modify any documents."
-    }
+  # result = mongo.db.users.update_one(
+  #   {'_id': ObjectId(id), 'shops.name': shop},
+  #   {'$unset': {
+  #       "shops.$.google_client": 1,
+  #       "shops.$.google_access_token": 1,
+  #       "shops.$.google_refresh_token": 1
+  #     }
+  #   }
+  # )
 
-    return json.dumps(response)
+  # if result.modified_count <= 0:
+  #   response = { 
+  #     "success": False, 
+  #     "message": "Update failed or did not modify any documents."
+  #   }
+
+  #   return json.dumps(response)
   
-  response = { 
-    "success": True, 
-    "message": f"Removed Google Ads account from ${shop}"
-  }
+  # response = { 
+  #   "success": True, 
+  #   "message": f"Removed Google Ads account from ${shop}"
+  # }
 
-  return json.dumps(response)
+  # return json.dumps(response)
 
 @routes.route('/google/ads', methods=['POST'])
 def google_ads():
@@ -284,6 +290,8 @@ def google_ads():
   start = data['start']
   end = data['end']
   store = data['store']
+
+  print(start)
 
   if not store:
     return ({'error': 'Missing store!'}), 400
