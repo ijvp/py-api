@@ -42,7 +42,6 @@ API_VERSION = 'v2'
 
 @routes.route('/', methods=['GET'])
 def index():
-  print('teste')
   return 'ok', 200
 
 @routes.route('/google/authorize', methods=['GET'])
@@ -71,7 +70,7 @@ def google_callback():
   state_str = request.args.get('state')
   state = json.loads(state_str)
 
-  flow = get_flow()
+  #flow = get_flow()
 
   return state, 200
 
