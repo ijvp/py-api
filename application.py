@@ -14,12 +14,10 @@ load_dotenv()
 application = Flask(__name__)
 
 CORS(application, resources={r"*": {"origins": "*"}})
-application.config["MONGO_URI"] = os.environ.get('DB_CONNECT')
-application.config['MONGO_DBNAME'] = os.environ.get('DB_NAME')
-application.secret_key = os.environ.get('FLASK_SECRET_KEY')
+# application.secret_key = os.environ.get('FLASK_SECRET_KEY')
+application.secret_key = "testesail"
 application.register_blueprint(routes)
 application.logger.addHandler(logging.StreamHandler(sys.stdout))
-database.init_app(application)
 
 if __name__ == '__main__':
-  application.run(application.run(host='localhost', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
+  application.run(application.run(host='localhost', port=8080, debug=False))
