@@ -40,16 +40,6 @@ SCOPES = ['https://www.googleapis.com/auth/adwords']
 API_SERVICE_NAME = 'drive'
 API_VERSION = 'v2'
 
-g=Fernet.generate_key()
-print(g)
-
-fernetKey = os.environ.get('FERNET_KEY')
-
-if fernetKey is None: 
-  raise ValueError("FERNET_KEY environment variable is not set.")
-
-fernet = Fernet(fernetKey)
-
 @routes.route('/', methods=['GET'])
 def index():
   print('teste')
@@ -411,22 +401,6 @@ def credentials_to_dict(credentials):
     'refresh_token': credentials.refresh_token
   }
 
-def get_token(reqShops, shopName, type="access"):
-   
-  selected_token = f"google_{type}_token"
-
-  shopFound = None
-
-  for shop in reqShops:
-    if shop['name'] == shopName:
-      shopFound = shop
-
-  token = shopFound[selected_token]
-  token = base64.b64decode(token['$binary']['base64'])
-  token = fernet.decrypt(token)
-
-  return token
-
 def get_google_ads_client(credentials, developer_token):
   return GoogleAdsClient(credentials=credentials, developer_token=developer_token)
 
@@ -449,9 +423,6 @@ def get_flow():
   flow.redirect_uri = url_for('routes.google_callback', _external=True)
 
   return flow
-
-def encrypt_token(token):
-  return fernet.encrypt(token.encode())
 
 def is_valid_object_id(id_str):
     try:
