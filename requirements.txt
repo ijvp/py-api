@@ -24,3 +24,4 @@ flask-cors
 redis
 redis-om
 redis-py-cluster
+gunicorn

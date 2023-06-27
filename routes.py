@@ -57,7 +57,7 @@ API_VERSION = 'v2'
 
 @routes.route('/', methods=['GET'])
 def index():
-  print(request)
+  print('teste')
   return 'ok', 200
 
 # @routes.route('/google/authorize', methods=['GET'])
