@@ -18,6 +18,23 @@ from rediscluster import RedisCluster
 import requests
 load_dotenv()
 
+print('DB_CONNECT', os.environ.get('DB_CONNECT'))
+print('GOOGLE_CLIENT_ID', os.environ.get('GOOGLE_CLIENT_ID'))
+print('GOOGLE_CLIENT_SECRET', os.environ.get('GOOGLE_CLIENT_SECRET'))
+print('GOOGLE_REDIRECT_URL', os.environ.get('GOOGLE_REDIRECT_URL'))
+print('GOOGLE_MANAGE_TOKEN', os.environ.get('GOOGLE_MANAGE_TOKEN'))
+print('FERNET_KEY', os.environ.get('FERNET_KEY'))
+print('FLASK_SECRET_KEY', os.environ.get('FLASK_SECRET_KEY'))
+print('PORT', os.environ.get('PORT'))
+print('DEBUG', os.environ.get('DEBUG'))
+print('HOST', os.environ.get('HOST'))
+print('DEBUG', os.environ.get('DEBUG'))
+print('RUST_BACKTRACE', os.environ.get('RUST_BACKTRACE'))
+print('REDIS_URL', os.environ.get('REDIS_URL'))
+print('REDIS_HOST', os.environ.get('REDIS_HOST'))
+print('REDIS_PORT', os.environ.get('REDIS_PORT'))
+     
+
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
