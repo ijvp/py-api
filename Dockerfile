@@ -1,6 +1,6 @@
-FROM python:3.11
+FROM python:3
 
-WORKDIR /user/app
+WORKDIR /app
 
 COPY requirements.txt ./
 
