@@ -7,7 +7,6 @@ from bson import ObjectId, json_util
 from flask import (Blueprint, request, url_for)
 import google.oauth2.credentials
 from google.protobuf import json_format
-from extentions.database import mongo
 from datetime import datetime
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
@@ -25,7 +24,7 @@ startup_nodes=[{ "host": redis_host, "port": redis_port, "db": 0}]
 
 if os.environ.get('ENV') == 'development':
   print("dev")
-  r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
+  r = redis.Redis(host=redis_host, port=redis_port, decode_responses=True)
 else:
   print("prod")
   r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
