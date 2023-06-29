@@ -20,4 +20,7 @@ application.register_blueprint(routes)
 application.logger.addHandler(logging.StreamHandler(sys.stdout))
 
 if __name__ == '__main__':
-  application.run(host='0.0.0.0', port=8080, debug=False, server='gunicorn')
+  if os.environ.get('ENV') == 'development':
+    application.run(host='0.0.0.0', port=os.environ.get('PO'), debug=os.environ.get('DEBUG'))
+  else:
+    application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'), server='gunicorn')
