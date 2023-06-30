@@ -24,10 +24,8 @@ redis_port = os.environ.get('REDIS_PORT')
 startup_nodes=[{ "host": redis_host, "port": redis_port}]
 
 if os.environ.get('ENV') == 'development':
-  print("dev")
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
-  print("prod")
   r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
 
 if r.ping():
@@ -41,7 +39,6 @@ API_SERVICE_NAME = 'drive'
 API_VERSION = 'v2'
 
 # g=Fernet.generate_key()
-# print(g)
 
 fernetKey = os.environ.get('FERNET_KEY')
 
@@ -53,7 +50,6 @@ fernet = Fernet(fernetKey)
 @routes.route('/', methods=['GET'])
 def index():
   msg = r.keys(pattern="*")
-  print(msg)
   return 'ok', 200
 
 @routes.route('/google/authorize', methods=['GET'])
@@ -141,9 +137,7 @@ def google_accounts():
 
   if expiryDate["isValid"] == True:
     accessToken = storeFound['googleAccessToken']
-    print('same')
   else:
-    print('new')
     accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
@@ -282,15 +276,15 @@ def google_ads():
   start = data['start']
   end = data['end']
   store = data['store']
-
   if not store:
     return ({'error': 'Missing store!'}), 400
   
   if not start or not end: 
     return ({'error': 'Start date and end date must be set!'}), 400
   
-  start_date = datetime.strptime(start, "%Y-%m-%d")
-  end_date = datetime.strptime(end, "%Y-%m-%d")
+  date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+  start_date = datetime.strptime(start, date_format)
+  end_date = datetime.strptime(end, date_format)
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
@@ -305,10 +299,8 @@ def google_ads():
   expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
   if expiryDate["isValid"] == True:
-    print('same')
     accessToken = storeFound['googleAccessToken']
   else:
-    print('new')
     accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
@@ -334,7 +326,6 @@ def google_ads():
   )
 
   difference = end_date - start_date
-
   if difference < timedelta(days=1):
     is_single_day = True
   else:
@@ -370,11 +361,11 @@ def google_ads():
       campaign = json.loads(json_str)
       dateKey = None
 
+      
       if is_single_day:
         dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
-        datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
-        date_only = datetime_obj.date()
-        dateKey = str(date_only) + "T" + dateKey
+        dt = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
+        dateKey = dt.replace(hour=campaign["segments"]["hour"])
       else:
         dateKey = campaign["segments"]["date"]
 

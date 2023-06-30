@@ -22,4 +22,4 @@ application.logger.addHandler(logging.StreamHandler(sys.stdout))
 database.init_app(application)
 
 if __name__ == '__main__':
-  application.run(application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
+  application.run(application.run(host='127.0.0.1', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
