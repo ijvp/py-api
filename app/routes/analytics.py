@@ -104,6 +104,58 @@ def init_client():
 	except Exception as e:
 			print(f"An exception occurred: {e}")
 
+@google_analytics_bp.route('/google-ads/callback', methods=['GET'])
+def google_callback():
+  state_str = str(request.args.get('state'))
+  state = json.loads(state_str)
+
+  #flow = get_flow()
+
+  return state, 200
+
+  # if os.environ.get('ENV') == 'development':
+  #   authorization_response = request.url.replace('http', 'https')
+  # else:
+  #   authorization_response = request.url
+
+  # flow.fetch_token(authorization_response=authorization_response)
+
+  # response = credentials_to_dict(flow.credentials)
+
+  # try:
+  #   user = (u for u in mongo.db.users.find({"_id": ObjectId(state['id'])}))
+  # except Exception:
+  #   return 'error', 500
+  
+  # user_json = json.loads(json_util.dumps(user))
+
+  # if len(user_json) == 0:
+  #   return ({'error': 'User not found!'}), 404
+
+  # shop_index = None
+  # for i, shop in enumerate(user_json[0]['shops']):
+
+  #   if shop['name'] == state['store']:
+  #     shop_index = i
+  #     break
+
+  # if shop_index is not None:
+  #   result = mongo.db.users.update_one(
+  #     {'_id': ObjectId(state['id']), 'shops.name': state['store']},
+  #     {'$set': {
+  #         'shops.$.google_access_token': encrypt_token(response['token']), 
+  #         'shops.$.google_refresh_token': encrypt_token(response['refresh_token'])
+  #       }
+  #     }
+  #   )
+
+  #   if result.raw_result['nModified'] == 0:
+  #     return ({'error': 'Shop cannot be updated!'}), 400
+
+  #   return ({'message': 'Shop updated!'}), 200
+    
+  # return ({'error': 'shop not found!'}), 404
+
 
 @google_analytics_bp.route('/google-analytics/accounts', methods=['GET'])
 def get_google_analytics_accounts():
