@@ -19,6 +19,6 @@ application.logger.addHandler(logging.StreamHandler(sys.stdout))
 
 if __name__ == '__main__':
   if os.environ.get('ENV') == 'development':
-    application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'))
+    application.run(host=os.environ.get('HOST'), port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'))
   else:
-    application.run(host='0.0.0.0', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'), server='gunicorn')
+    application.run(host=os.environ.get('HOST'), port=os.environ.get('PORT'), debug=os.environ.get('DEBUG'), server='gunicorn')

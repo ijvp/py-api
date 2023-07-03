@@ -8,6 +8,10 @@ services:
       - 8081:8081
     volumes:
       - .:/app
-    environment:
-      - REDIS_HOST=localhost
-      - REDIS_PORT=6379
+    networks:
+      - dashboard-network
+
+networks:
+  dashboard-network:
+    external:
+      name: dashboard-network

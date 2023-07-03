@@ -160,6 +160,7 @@ def google_accounts():
   try:
     customer_service = client.get_service(name='CustomerService', version='v12')
     response = customer_service.list_accessible_customers()
+
   except Exception as e:
     return({'error': str(e)}), 500
 
@@ -271,12 +272,21 @@ def google_account_disconnect():
 
 @routes.route('/google/ads', methods=['POST'])
 def google_ads():
-  data = json.loads(request.get_data())
+  try:
+    data = json.loads(request.get_data())
+  except json.decoder.JSONDecodeError:
+    return ({'error': 'Invalid JSON data'}), 400
+  
+  print(data)
+  
   start = data['start']
   end = data['end']
   store = data['store']
 
-  print(start)
+  if not data:
+    return ({'error': 'Missing something!'}), 400
+
+  print(data)
 
   if not store:
     return ({'error': 'Missing store!'}), 400
@@ -342,19 +352,18 @@ def google_ads():
     FROM
       campaign
     WHERE
-      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-      segments.date <= '{end_date.strftime('%Y%m%d')}'
+      segments.date >= '{start_date.strftime('%Y%m%d')}' 
+      AND segments.date <= '{end_date.strftime('%Y%m%d')}'
   """
-  
   ga_service = client.get_service(name="GoogleAdsService")
   
   req = client.get_type("SearchGoogleAdsRequest")
   req.customer_id = idFound
-  req.query = query  
+  req.query = query
 
   try:
     response = ga_service.search(request=req)
-    
+
     metrics = {
       "id": "google-ads.ads-metrics",
       "metricsBreakdown": []
