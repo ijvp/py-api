@@ -276,6 +276,8 @@ def google_ads():
   start = data['start']
   end = data['end']
   store = data['store']
+  dateRange = data.get('dateRange')
+
   if not store:
     return ({'error': 'Missing store!'}), 400
   
@@ -334,12 +336,12 @@ def google_ads():
   query = f"""
     SELECT
       metrics.cost_micros,
-      {"segments.hour" if is_single_day == True else "segments.date"}
+      segments.date,
+      segments.hour
     FROM
       campaign
     WHERE
-      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-      segments.date <= '{end_date.strftime('%Y%m%d')}'
+      {f"segments.date >= {start_date.strftime('%Y%m%d')} AND segments.date <= {end_date.strftime('%Y%m%d')}" if not dateRange else f"segments.date DURING {dateRange}"}
   """
   
   ga_service = client.get_service(name="GoogleAdsService")
