@@ -22,4 +22,4 @@ application.register_blueprint(google_analytics_bp)
 application.logger.addHandler(logging.StreamHandler(sys.stdout))
 
 if __name__ == '__main__':
-  application.run(host='0.0.0.0', port=8080, debug=False, server='gunicorn')
+  application.run(application.run(host='127.0.0.1', port=os.environ.get('PORT'), debug=os.environ.get('DEBUG')))
