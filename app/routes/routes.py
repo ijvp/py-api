@@ -349,7 +349,7 @@ def google_ads():
     FROM
       campaign
     WHERE
-      {f"segments.date >= {start_date.strftime('%Y%m%d')} AND segments.date <= {end_date.strftime('%Y%m%d')}" if dateRange == '' else f"segments.date DURING {dateRange}"}
+      {f"segments.date >= {start_date.strftime('%Y%m%d')} AND segments.date <= {end_date.strftime('%Y%m%d')}" if not dateRange else f"segments.date DURING {dateRange}"}
   """
   ga_service = client.get_service(name="GoogleAdsService")
   
