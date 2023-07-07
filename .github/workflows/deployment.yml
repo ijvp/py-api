@@ -35,3 +35,47 @@ jobs:
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          - name: Install AWS LightSails Essentials
+          run: |
+            aws --version
+            # install LightsailCTL Plugin (https://lightsail.aws.amazon.com/ls/docs/en_us/articles/amazon-lightsail-install-software)
+            sudo apt-get update && sudo apt-get -y install curl jq
+            curl https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl -o /usr/local/bin/lightsailctl
+            chmod +x /usr/local/bin/lightsailctl
+      - name: Release to Amazon Lightsail
+        env:
+          CONTAINER_SERVICE_NAME: ${{ env.SERVICE_NAME }}
+        run: |
+          echo "Releasing to Amazon Lightsail"
+          # upload the docker image for this pipeline
+          aws lightsail push-container-image \
+            --service-name $CONTAINER_SERVICE_NAME  \
+            --label ${{ env.SERVICE_NAME }}-latest  \
+            --image 548673342488.dkr.ecr.us-east-1.amazonaws.com/pyboard-api:${{ github.sha }}
+          # get uploaded image (its different every time)
+          IMAGE_TAG=$(aws lightsail get-container-images --service $CONTAINER_SERVICE_NAME | jq -r .containerImages[0].image)
+          # create a deployment with uploaded docker image
+          aws lightsail create-container-service-deployment \
+            --service-name $CONTAINER_SERVICE_NAME \
+            --containers "{
+              \"$CONTAINER_SERVICE_NAME\": {
+                \"image\": \"$IMAGE_TAG\",
+                \"ports\": {
+                  \"8080\": \"HTTP\"
+                }
+              }
+            }" \
+            --public-endpoint "{
+              \"containerName\": \"$CONTAINER_SERVICE_NAME\",
+              \"containerPort\": 8080,
+              \"healthCheck\": {
+                \"path\": \"/\",
+                \"intervalSeconds\": 10
+              }
+            }"
+      - uses: actions/checkout@v3
+      - uses: shogo82148/actions-setup-redis@v1
+        with:
+          redis-version: '7.x'
+      - run: redis-cli ping
+          
