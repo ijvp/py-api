@@ -9,7 +9,6 @@ import logging
 import sys
 
 load_dotenv()
-
 application = Flask(__name__)
 
 CORS(application, resources={r"*": {"origins": "*"}})

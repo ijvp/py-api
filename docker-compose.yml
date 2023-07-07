@@ -10,8 +10,16 @@ services:
       - .:/app
     networks:
       - dashboard-network
+    x-develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /app/app
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: package.json
 
 networks:
   dashboard-network:
-    external:
-      name: dashboard-network
+    name: dashboard-network
