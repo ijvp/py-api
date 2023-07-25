@@ -47,6 +47,7 @@ jobs:
           username: ${{ secrets.EC2_SSH_USERNAME }}
           key: ${{ env.SSH_PRIVATE_KEY }}
           script: |
+            cd dashboard-python-api
             docker-compose down
             docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
             docker-compose up -d
