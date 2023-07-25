@@ -256,8 +256,6 @@ def google_ads():
   end = data['end']
   store = data['store']
 
-  print(start)
-
   if not store:
     return ({'error': 'Missing store!'}), 400
   
@@ -277,14 +275,13 @@ def google_ads():
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
   
-  expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
+  expiryDate = convert_timestamp_to_date(int(storeFound['googleAdsExpiryDate'])/ 1000)
 
   if expiryDate["isValid"] == True:
-    print('same')
-    accessToken = storeFound['googleAccessToken']
+    accessToken = storeFound['googleAdsAccessToken']
   else:
     print('new')
-    accessToken = refresh_access_token(storeFound['googleRefreshToken'])
+    accessToken = refresh_access_token(storeFound['googleAdsRefreshToken'])
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
@@ -293,11 +290,11 @@ def google_ads():
 
     accessToken = accessToken['new_access_token']
 
-    r.hset(f"store:{store}", 'googleAccessToken', accessToken)
+    r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
   
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
-    refresh_token=storeFound['googleRefreshToken'],
+    refresh_token=storeFound['googleAdsRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
