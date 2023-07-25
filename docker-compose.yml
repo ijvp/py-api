@@ -1,19 +1,9 @@
 version: '3'
 services:
-  redis:
-    image: redis:latest
-    ports:
-      - 6379:6379
-  python-server:
+  python-api:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: on-failure
     ports:
-      - 8080:8080
-    volumes:
-      - .:/app
-    depends_on:
-      - redis
-    environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - 8081:8081
