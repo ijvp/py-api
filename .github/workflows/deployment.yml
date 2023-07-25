@@ -47,7 +47,10 @@ jobs:
           username: ${{ secrets.EC2_SSH_USERNAME }}
           key: ${{ env.SSH_PRIVATE_KEY }}
           script: |
-            cd dashboard-python-api
-            docker-compose down
+            CONTAINER_NAME="python-api"
+            if [ "$(docker ps -aq -f name=${CONTAINER_NAME})" ]; then
+              docker stop ${CONTAINER_NAME}
+              docker rm ${CONTAINER_NAME}
+            fi
             docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
-            docker-compose up -d
+            docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
