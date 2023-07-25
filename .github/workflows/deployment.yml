@@ -48,7 +48,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             CONTAINER_NAME="python-api"
-            if [ "$(docker ps -aq -f name=python-api" ]; then
+            if [ "$(docker ps -aq -f name=python-api)" ]; then
               docker stop python-api
               docker rm python-api
             fi
