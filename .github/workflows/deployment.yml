@@ -49,11 +49,4 @@ jobs:
           username: ${{ secrets.EC2_SSH_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            CONTAINER_NAME="python-api"
-            if [ "$(docker ps -aq -f name=python-api)" ]; then
-              sudo docker stop python-api
-              sudo docker rm python-api
-            fi
-
-            sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
-            sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+            docker --version
