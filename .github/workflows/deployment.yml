@@ -51,12 +51,11 @@ jobs:
               sudo docker rm python-api
             fi
 
-            sudo yum install -y awscli
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws configure set region ${{ env.AWS_REGION }}
 
-            aws ecr get-login-password --region ${{env.AWS_REGION}} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+            aws ecr get-login-password --region ${{env.AWS_REGION}} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
 
             sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
             sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
