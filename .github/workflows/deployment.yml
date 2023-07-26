@@ -14,24 +14,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Use Node.js 16.x
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16.x'
-          
+    steps:        
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Set up AWS CLI
-        run: |
-          sudo apt-get install -y awscli
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region ${{ env.AWS_REGION }}
 
-      - name: Login to AWS ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: sa-east-1
+          
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Build and push Docker image to ECR
         run: |
