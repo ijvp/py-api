@@ -31,7 +31,7 @@ jobs:
           aws configure set region ${{ env.AWS_REGION }}
 
       - name: Login to AWS ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} --no-include-email | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
 
       - name: Build and push Docker image to ECR
         run: |
