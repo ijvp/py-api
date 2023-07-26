@@ -41,9 +41,6 @@ jobs:
           docker tag ${{ env.AWS_ECR_REPO }}:${{ github.sha }} ${{ env.AWS_ECR_REPO }}:latest
           docker push ${{ env.AWS_ECR_REPO }}:latest
 
-      - name: Login to AWS ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
-
       - name: SSH into EC2 instance and deploy container
         uses: appleboy/ssh-action@master
         with:
@@ -56,4 +53,6 @@ jobs:
               sudo docker stop python-api
               sudo docker rm python-api
             fi
+
             sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+            sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
