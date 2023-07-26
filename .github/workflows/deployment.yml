@@ -54,3 +54,6 @@ jobs:
               sudo docker stop python-api
               sudo docker rm python-api
             fi
+
+            sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+            
