@@ -47,3 +47,5 @@ jobs:
           script: |
 
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+
+            docker pull {{ env.AWS_ECR_REPO }}:latest
