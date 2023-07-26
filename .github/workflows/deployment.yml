@@ -45,7 +45,5 @@ jobs:
           username: ${{ secrets.EC2_SSH_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            docker info
-            aws ecr get-login-password --region ${{env.AWS_REGION}} | docker login --username AWS --password-plaintext ${{ env.AWS_ECR_REPO }}
 
-            sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
