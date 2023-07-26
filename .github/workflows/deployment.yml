@@ -52,5 +52,7 @@ jobs:
               sudo docker stop python-api
               sudo docker rm python-api
             fi
+
+            aws ecr get-login-password --region sa-east-1 | sudo docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
             sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
             sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
