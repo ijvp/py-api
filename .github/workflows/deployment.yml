@@ -55,4 +55,4 @@ jobs:
 
             docker pull ${{ env.AWS_ECR_REPO }}:latest
 
-            sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:latest
+            sudo docker run -d -p 8081:8081 --name dashboard-python-api --env-file /home/ec2-user/py-api-env/.env ${{ env.AWS_ECR_REPO }}:latest
