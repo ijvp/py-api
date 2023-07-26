@@ -31,7 +31,7 @@ jobs:
           aws configure set region ${{ env.AWS_REGION }}
 
       - name: Login to AWS ECR
-        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+        run: aws ecr get-login-password --region ${{ env.AWS_REGION }} --no-include-email | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
 
       - name: Build and push Docker image to ECR
         run: |
@@ -40,6 +40,7 @@ jobs:
           docker push ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
           docker tag ${{ env.AWS_ECR_REPO }}:${{ github.sha }} ${{ env.AWS_ECR_REPO }}:latest
           docker push ${{ env.AWS_ECR_REPO }}:latest
+
       - name: SSH into EC2 instance and deploy container
         uses: appleboy/ssh-action@master
         with:
@@ -53,6 +54,5 @@ jobs:
               sudo docker rm python-api
             fi
 
-            aws ecr get-login-password --region sa-east-1 | sudo docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
             sudo docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
             sudo docker run -d -p 8081:8081 --name python-api ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
