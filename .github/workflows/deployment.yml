@@ -44,10 +44,10 @@ jobs:
           username: ${{ secrets.EC2_SSH_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
-            CONTAINER_NAME="python-api"
-            if [ "$(docker ps -aq -f name=python-api)" ]; then
-              sudo docker stop python-api
-              sudo docker rm python-api
+            CONTAINER_NAME="dashboard-python-api"
+            if [ "$(docker ps -aq -f name=dashboard-python-api)" ]; then
+              sudo docker stop dashboard-python-api
+              sudo docker rm dashboard-python-api
             fi
 
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
