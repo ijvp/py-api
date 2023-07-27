@@ -50,6 +50,8 @@ jobs:
               sudo docker rm dashboard-python-api
             fi
 
+            sudo docker image prune -a
+
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws configure set region ${{ env.AWS_REGION }}
