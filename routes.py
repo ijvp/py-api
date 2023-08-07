@@ -288,7 +288,7 @@ def google_ads():
 
   if not store:
     return ({'error': 'Missing store!'}), 400
-  
+   
   if not start or not end: 
     return ({'error': 'Start date and end date must be set!'}), 400
   
