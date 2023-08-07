@@ -56,7 +56,9 @@ jobs:
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws configure set region ${{ env.AWS_REGION }}
 
-            docker login -u AWS -p $(aws ecr get-login-password --region ${{ env.AWS_REGION }}) ${{ env.AWS_ECR_REPO }}
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} 
+            
+            docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
 
             docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
 
