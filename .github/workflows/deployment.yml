@@ -52,9 +52,7 @@ jobs:
 
             sudo docker image prune -af
 
-            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws configure set region ${{ env.AWS_REGION }}
+            
 
             aws ecr get-login --no-include-email --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
 
