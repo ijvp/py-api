@@ -1,20 +1,23 @@
-name: Deploy
+name: Deploy dashboard python to ECR and EC2
 
 on:
   push:
-    branches: [development]
+    branches: 
+      - main
 
 env:
-  SERVICE_NAME: 'pyboard-container-service-dev'
+  AWS_REGION: sa-east-1
+  AWS_ECR_REPO: 548673342488.dkr.ecr.sa-east-1.amazonaws.com/pyboard-api
+  SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
 jobs:
-  build:
-    name: Build Image
+  deploy:
     runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v2
 
+    steps:        
+      - name: Checkout repository
+        uses: actions/checkout@v2
+ 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -26,55 +29,37 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build, tag, and push image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: pyboard-api
-          IMAGE_TAG: ${{ github.sha }}
+      - name: Build and push Docker image to ECR
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          - name: Install AWS LightSails Essentials
-          run: |
-            aws --version
-            # install LightsailCTL Plugin (https://lightsail.aws.amazon.com/ls/docs/en_us/articles/amazon-lightsail-install-software)
-            sudo apt-get update && sudo apt-get -y install curl jq
-            curl https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl -o /usr/local/bin/lightsailctl
-            chmod +x /usr/local/bin/lightsailctl
-      - name: Release to Amazon Lightsail
-        env:
-          CONTAINER_SERVICE_NAME: ${{ env.SERVICE_NAME }}
-        run: |
-          echo "Releasing to Amazon Lightsail"
-          # upload the docker image for this pipeline
-          aws lightsail push-container-image \
-            --service-name $CONTAINER_SERVICE_NAME  \
-            --label ${{ env.SERVICE_NAME }}-latest  \
-            --image 548673342488.dkr.ecr.us-east-1.amazonaws.com/pyboard-api:${{ github.sha }}
-          # get uploaded image (its different every time)
-          IMAGE_TAG=$(aws lightsail get-container-images --service $CONTAINER_SERVICE_NAME | jq -r .containerImages[0].image)
-          # create a deployment with uploaded docker image
-          aws lightsail create-container-service-deployment \
-            --service-name $CONTAINER_SERVICE_NAME \
-            --containers "{
-              \"$CONTAINER_SERVICE_NAME\": {
-                \"image\": \"$IMAGE_TAG\",
-                \"ports\": {
-                  \"8081\": \"HTTP\"
-                }
-              }
-            }" \
-            --public-endpoint "{
-              \"containerName\": \"$CONTAINER_SERVICE_NAME\",
-              \"containerPort\": 8081,
-              \"healthCheck\": {
-                \"path\": \"/\",
-                \"intervalSeconds\": 10
-              }
-            }"
-      - uses: actions/checkout@v3
-      - uses: shogo82148/actions-setup-redis@v1
+          docker build -t ${{ env.AWS_ECR_REPO }} .
+          docker tag ${{ env.AWS_ECR_REPO }}:latest ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+          docker push ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+          docker tag ${{ env.AWS_ECR_REPO }}:${{ github.sha }} ${{ env.AWS_ECR_REPO }}:latest
+          docker push ${{ env.AWS_ECR_REPO }}:latest
+
+      - name: SSH into EC2 instance and deploy container
+        uses: appleboy/ssh-action@master
         with:
-          redis-version: '7.x'
-      - run: redis-cli ping
-          
+          host: ${{ secrets.EC2_SSH_HOST }}
+          username: ${{ secrets.EC2_SSH_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            CONTAINER_NAME="dashboard-python-api"
+            if [ "$(docker ps -aq -f name=dashboard-python-api)" ]; then
+              sudo docker stop dashboard-python-api
+              sudo docker rm dashboard-python-api
+            fi
+
+            sudo docker image prune -af
+
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws configure set region ${{ env.AWS_REGION }}
+
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+
+            docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+
+            sudo docker run -d -p 8081:8081 --name dashboard-python-api --restart on-failure --env-file /home/ec2-user/py-api-env/.env --network dashboard-api-network ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+
+ 
