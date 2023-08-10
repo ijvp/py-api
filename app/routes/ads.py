@@ -16,6 +16,8 @@ import base64
 import redis
 from rediscluster import RedisCluster
 import requests
+from application import db
+from app.models.Store import Store
 load_dotenv()     
 
 redis_host = os.environ.get('REDIS_HOST')
@@ -42,7 +44,9 @@ API_VERSION = 'v2'
 
 @google_ads_bp.route('/', methods=['GET'])
 def index():
-  return 'ok', 200
+  storeFound = db.Query((Store).filter_by(name='dev-insta-plugin.myshopify.com').filter())
+
+  return { "online": 'True', "data": storeFound}, 200
 
 @google_ads_bp.route('/google-ads/callback', methods=['GET'])
 def google_callback():
