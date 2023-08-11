@@ -7,7 +7,6 @@ from bson import ObjectId, json_util
 from flask import (Blueprint, request, url_for)
 import google.oauth2.credentials
 from google.protobuf import json_format
-from extensions.database import mongo
 from datetime import datetime
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
@@ -16,8 +15,10 @@ import base64
 import redis
 from rediscluster import RedisCluster
 import requests
-from application import db
-from app.models.Store import Store
+from extensions.database.postgresql import db
+from app.models.Stores import Stores
+import json
+from flask import jsonify
 load_dotenv()     
 
 redis_host = os.environ.get('REDIS_HOST')
@@ -44,9 +45,7 @@ API_VERSION = 'v2'
 
 @google_ads_bp.route('/', methods=['GET'])
 def index():
-  storeFound = db.Query((Store).filter_by(name='dev-insta-plugin.myshopify.com').filter())
-
-  return { "online": 'True', "data": storeFound}, 200
+  return { "online": 'True'}, 200
 
 @google_ads_bp.route('/google-ads/callback', methods=['GET'])
 def google_callback():
@@ -272,9 +271,9 @@ def google_ads():
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
   
-  idFound = r.hget(f"google_ads_account:{store}", 'id')
-
-  storeFound = r.hgetall(f"store:{store}")
+  storeFound = get_store_by_name(store)
+ 
+  keys = get_google_accounts_keys_by_store_id(storeFound['id'])
 
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
@@ -282,10 +281,10 @@ def google_ads():
   expiryDate = convert_timestamp_to_date(int(storeFound['googleAdsExpiryDate'])/ 1000)
 
   if expiryDate["isValid"] == True:
-    accessToken = storeFound['googleAdsAccessToken']
+    accessToken = keys['access_token']
   else:
     print('new')
-    accessToken = refresh_access_token(storeFound['googleAdsRefreshToken'])
+    accessToken = refresh_access_token(keys['refresh_token'])
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
@@ -298,7 +297,7 @@ def google_ads():
   
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
-    refresh_token=storeFound['googleAdsRefreshToken'],
+    refresh_token=keys['refresh_token'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -330,7 +329,7 @@ def google_ads():
   ga_service = client.get_service(name="GoogleAdsService")
   
   req = client.get_type("SearchGoogleAdsRequest")
-  req.customer_id = idFound
+  req.customer_id = keys['google_account_id']
   req.query = query  
 
   try:
@@ -443,3 +442,41 @@ def convert_timestamp_to_date(timestamp):
     formatted_date = date.strftime('%Y-%m-%d %H:%M:%S')
 
     return ({"data": formatted_date, "isValid": current_datetime < date})
+
+def get_store_by_name(name):
+  query = db.text("SELECT * FROM stores WHERE name = :name")
+  
+  store = db.session.execute( query, { "name": name }).fetchone()
+
+  if store is None:
+    return jsonify({ "error": "Store not found" }), 404
+  
+  store_data = {
+    "id": store.id, 
+    "name": store.name, 
+    "user_id": store.user_id, 
+    "created_at": store.created_at, 
+    "updated_at": store.updated_at
+  }
+
+  return store_data
+
+def get_google_accounts_keys_by_store_id(store_id):
+  query = db.text("SELECT * FROM google_accounts WHERE store_id = :store_id")
+  
+  keys = db.session.execute( query, { "store_id": store_id }).fetchone()
+
+  if keys is None:
+    return jsonify({ "error": "Store not found" }), 404
+  
+  keys_data = {
+    "id": keys.id,
+    "access_token": keys.access_token, 
+    "refresh_token": keys.refresh_token, 
+    "store_id": keys.store_id, 
+    "google_account_id,": keys.google_account_id,
+    "created_at": keys.created_at,
+    "updated_at": keys.updated_at
+  }
+
+  return keys_data
