@@ -29,3 +29,4 @@ gunicorn
 psycopg2-binary
 SQLAlchemy
 Flask-SQLAlchemy
+pycryptodome

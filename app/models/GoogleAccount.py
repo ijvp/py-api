@@ -1,18 +1,27 @@
-# from sqlalchemy import Column, Integer, String, DateTime
-# from sqlalchemy.ext.declarative import declarative_base
-# from sqlalchemy.sql import func
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, Integer, String, BigInteger, DateTime
+from datetime import datetime
 
-# Base = declarative_base()
+db = SQLAlchemy()
 
-# class ShopifyAccount(Base):
-#     __tablename__ = 'shopify_accounts'
+class GoogleAccount(db.Model):
+    __tablename__ = 'google_accounts'
 
-#     id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-#     access_token = Column(String)
-#     scope = Column(String)
-#     store_id = Column(String, nullable=False)
-#     created_at = Column(DateTime, nullable=False, default=func.now())
-#     updated_at = Column(DateTime, nullable=False, default=func.now())
+    id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
+    access_token = Column(String, nullable=True)
+    refresh_token = Column(String, nullable=True)
+    store_id = Column(String, nullable=False)
+    google_account_id = Column(BigInteger, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    expire_date = Column(BigInteger, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-#     def __repr__(self):
-#         return f"<ShopifyAccount(id={self.id}, store_id={self.store_id})>"
+    def __init__(self, access_token, refresh_token, store_id, google_account_id, expire_date):
+        self.access_token = access_token
+        self.refresh_token = refresh_token
+        self.store_id = store_id
+        self.google_account_id = google_account_id
+        self.expire_date = expire_date
+
+    def __repr__(self):
+        return f"<GoogleAccount(id={self.id}, store_id='{self.store_id}')>"

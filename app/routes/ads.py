@@ -11,6 +11,7 @@ from datetime import datetime
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
+from Crypto.Random import get_random_bytes
 import base64
 import redis
 from rediscluster import RedisCluster
@@ -19,6 +20,12 @@ from extensions.database.postgresql import db
 from app.models.Stores import Stores
 import json
 from flask import jsonify
+
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+import base64
+import os
+
 load_dotenv()     
 
 redis_host = os.environ.get('REDIS_HOST')
@@ -254,7 +261,13 @@ def google_account_disconnect():
 
 @google_ads_bp.route('/google-ads/ads', methods=['POST'])
 def google_ads():
-  data = json.loads(request.get_data())
+  try:
+    data = json.loads(request.get_data())
+  except json.decoder.JSONDecodeError as e:
+    return jsonify({'error': 'Invalid JSON data'}), 400
+  
+  print(data)
+
   start = data['start']
   end = data['end']
   store = data['store']
@@ -272,106 +285,110 @@ def google_ads():
     return ({'error': 'Start date cannot occur after the end date!'}), 400
   
   storeFound = get_store_by_name(store)
- 
-  keys = get_google_accounts_keys_by_store_id(storeFound['id'])
 
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
-  
-  expiryDate = convert_timestamp_to_date(int(storeFound['googleAdsExpiryDate'])/ 1000)
+ 
+  keysFound = get_google_accounts_keys_by_store_id(storeFound['id'])
 
-  if expiryDate["isValid"] == True:
-    accessToken = keys['access_token']
-  else:
-    print('new')
-    accessToken = refresh_access_token(keys['refresh_token'])
+  expiryDate = convert_timestamp_to_date(keysFound['expiry_date']/ 1000)
 
-    if(accessToken == 'error'):
-      return ({'error': 'error when authenticating store'}), 401
+  # if expiryDate["isValid"] == True:
+  #   accessToken = keysFound['access_token']
+  # else:
+  #   print('new')
+  #   accessToken = refresh_access_token(keysFound['refresh_token'])
+
+  #decrypt(keysFound['refresh_token'])
+  test = decrypt(keysFound['refresh_token'])
+  return test, 200
+
+  #   if(accessToken == 'error'):
+  #     return ({'error': 'error when authenticating store'}), 401
     
-    r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
+  #   r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
 
-    accessToken = accessToken['new_access_token']
+  #   accessToken = accessToken['new_access_token']
 
-    r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
+  #   r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
   
-  credentials = google.oauth2.credentials.Credentials(
-    accessToken,
-    refresh_token=keys['refresh_token'],
-    token_uri='https://oauth2.googleapis.com/token',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
-  )
+  # credentials = google.oauth2.credentials.Credentials(
+  #   accessToken,
+  #   refresh_token=keys['refresh_token'],
+  #   token_uri='https://oauth2.googleapis.com/token',
+  #   client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+  #   client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
+  # )
 
-  client = get_google_ads_client(
-    credentials=credentials,
-    developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
-  )
+  # client = get_google_ads_client(
+  #   credentials=credentials,
+  #   developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
+  # )
 
-  difference = end_date - start_date
+  # difference = end_date - start_date
 
-  if difference < timedelta(days=1):
-    is_single_day = True
-  else:
-    is_single_day = False
+  # if difference < timedelta(days=1):
+  #   is_single_day = True
+  # else:
+  #   is_single_day = False
 
-  query = f"""
-    SELECT
-      metrics.cost_micros,
-      {"segments.hour" if is_single_day == True else "segments.date"}
-    FROM
-      campaign
-    WHERE
-      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-      segments.date <= '{end_date.strftime('%Y%m%d')}'
-  """
+  # query = f"""
+  #   SELECT
+  #     metrics.cost_micros,
+  #     {"segments.hour" if is_single_day == True else "segments.date"}
+  #   FROM
+  #     campaign
+  #   WHERE
+  #     segments.date >= '{start_date.strftime('%Y%m%d')}' AND
+  #     segments.date <= '{end_date.strftime('%Y%m%d')}'
+  # """
   
-  ga_service = client.get_service(name="GoogleAdsService")
+  # ga_service = client.get_service(name="GoogleAdsService")
   
-  req = client.get_type("SearchGoogleAdsRequest")
-  req.customer_id = keys['google_account_id']
-  req.query = query  
+  # req = client.get_type("SearchGoogleAdsRequest")
+  # req.customer_id = keys['google_account_id']
+  # req.query = query  
 
-  try:
-    response = ga_service.search(request=req)
+  # try:
+  #   response = ga_service.search(request=req)
     
-    metrics = {
-      "id": "google-ads.ads-metrics",
-      "metricsBreakdown": []
-    }
+  #   metrics = {
+  #     "id": "google-ads.ads-metrics",
+  #     "metricsBreakdown": []
+  #   }
 
-    for row in response:
-      json_str = json_format.MessageToJson(row)
-      campaign = json.loads(json_str)
-      dateKey = None
+  #   for row in response:
+  #     json_str = json_format.MessageToJson(row)
+  #     campaign = json.loads(json_str)
+  #     dateKey = None
 
-      if is_single_day:
-        dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
-        datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
-        date_only = datetime_obj.date()
-        dateKey = str(date_only) + "T" + dateKey
-      else:
-        dateKey = campaign["segments"]["date"]
+  #     if is_single_day:
+  #       dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
+  #       datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
+  #       date_only = datetime_obj.date()
+  #       dateKey = str(date_only) + "T" + dateKey
+  #     else:
+  #       dateKey = campaign["segments"]["date"]
 
-      dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
+  #     dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
 
-      if (dateExists):
-        dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
+  #     if (dateExists):
+  #       dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
         
-      else:
-        dataPoint = {
-          "date": dateKey,
-          "metrics": {
-            "spend": int(campaign["metrics"]["costMicros"]) / 1000000
-          }
-        }
+  #     else:
+  #       dataPoint = {
+  #         "date": dateKey,
+  #         "metrics": {
+  #           "spend": int(campaign["metrics"]["costMicros"]) / 1000000
+  #         }
+  #       }
 
-        metrics["metricsBreakdown"].append(dataPoint)
+  #       metrics["metricsBreakdown"].append(dataPoint)
 
-    return metrics, 200
+  #   return metrics, 200
   
-  except:
-    return "Something went wrong", 500
+  # except:
+  #   return "Something went wrong", 500
 
 def credentials_to_dict(credentials):
   return {
@@ -412,11 +429,13 @@ def is_valid_object_id(id_str):
 def refresh_access_token(refresh_token):
     token_endpoint = 'https://oauth2.googleapis.com/token'
     payload = {
-        'client_id': os.environ.get("GOOGLE_CLIENT_ID"),
-        'client_secret': os.environ.get("GOOGLE_CLIENT_SECRET"),
-        'refresh_token': refresh_token,
-        'grant_type': 'refresh_token'
+      'client_id': os.environ.get("GOOGLE_CLIENT_ID"),
+      'client_secret': os.environ.get("GOOGLE_CLIENT_SECRET"),
+      'refresh_token': refresh_token,
+      'grant_type': 'refresh_token'
     }
+
+    print(payload)
 
     response = requests.post(token_endpoint, data=payload)
     if response.status_code == 200:
@@ -429,7 +448,7 @@ def refresh_access_token(refresh_token):
           'expires_in': expires_in
         }
     else:
-        return 'error'
+        return response
 
 def convert_timestamp_to_date(timestamp):
     if isinstance(timestamp, str):
@@ -475,8 +494,20 @@ def get_google_accounts_keys_by_store_id(store_id):
     "refresh_token": keys.refresh_token, 
     "store_id": keys.store_id, 
     "google_account_id,": keys.google_account_id,
+    "expiry_date": keys.expiry_date,
     "created_at": keys.created_at,
     "updated_at": keys.updated_at
   }
 
   return keys_data
+
+key = 
+
+def decrypt(ciphertext):
+  ciphertext = base64.b64decode(ciphertext)
+  iv = ciphertext[:16]
+  ciphertext = ciphertext[16:]
+  cipher = AES.new(key, AES.MODE_CBC, iv=iv)
+  decrypted_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
+  return decrypted_text.decode('utf-8')
+
