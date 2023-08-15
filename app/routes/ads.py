@@ -31,6 +31,9 @@ load_dotenv()
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
 
+keys = os.environ.get('CRYPTO_SECRET')
+iv = os.environ.get('CRYPTO_IV')
+
 startup_nodes=[{ "host": redis_host, "port": redis_port, "db": 0}]
 
 if os.environ.get('ENV') == 'development':
@@ -52,7 +55,7 @@ API_VERSION = 'v2'
 
 @google_ads_bp.route('/', methods=['GET'])
 def index():
-  return { "online": 'True'}, 200
+  return jsonify({ "online": True }), 200
 
 @google_ads_bp.route('/google-ads/callback', methods=['GET'])
 def google_callback():
@@ -268,6 +271,7 @@ def google_ads():
   
   print(data)
 
+
   start = data['start']
   end = data['end']
   store = data['store']
@@ -293,25 +297,25 @@ def google_ads():
 
   expiryDate = convert_timestamp_to_date(keysFound['expiry_date']/ 1000)
 
-  # if expiryDate["isValid"] == True:
-  #   accessToken = keysFound['access_token']
-  # else:
-  #   print('new')
-  #   accessToken = refresh_access_token(keysFound['refresh_token'])
+  resp = decrypt(keysFound['refresh_token'])
 
-  #decrypt(keysFound['refresh_token'])
-  test = decrypt(keysFound['refresh_token'])
-  return test, 200
+  if expiryDate["isValid"] == True:
+    accessToken = decrypt(keysFound['access_token'])
+  else:
+    print('new')
+    accessToken = refresh_access_token(resp)
 
-  #   if(accessToken == 'error'):
-  #     return ({'error': 'error when authenticating store'}), 401
+    if(accessToken == 'error'):
+      return ({'error': 'error when authenticating store'}), 401
     
-  #   r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
+    expiry_date = int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000
+    access_token = accessToken['new_access_token']
+    store_id = storeFound['id']
+    
+    update_google_accounts_keys(store_id, access_token, expiry_date)
 
-  #   accessToken = accessToken['new_access_token']
+  return accessToken, 200
 
-  #   r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
-  
   # credentials = google.oauth2.credentials.Credentials(
   #   accessToken,
   #   refresh_token=keys['refresh_token'],
@@ -448,7 +452,7 @@ def refresh_access_token(refresh_token):
           'expires_in': expires_in
         }
     else:
-        return response
+        return 'error'
 
 def convert_timestamp_to_date(timestamp):
     if isinstance(timestamp, str):
@@ -501,13 +505,40 @@ def get_google_accounts_keys_by_store_id(store_id):
 
   return keys_data
 
-key = 
+def update_google_accounts_keys(store_id, access_token, expiry_date):
+  query = db.text("SELECT * FROM google_accounts WHERE store_id = :store_id")
+  
+  keys = db.session.execute( query, { "store_id": store_id }).fetchone()
 
-def decrypt(ciphertext):
-  ciphertext = base64.b64decode(ciphertext)
-  iv = ciphertext[:16]
-  ciphertext = ciphertext[16:]
-  cipher = AES.new(key, AES.MODE_CBC, iv=iv)
-  decrypted_text = unpad(cipher.decrypt(ciphertext), AES.block_size)
-  return decrypted_text.decode('utf-8')
+  if keys is None:
+      return jsonify({"error": "Store not found"}), 404
 
+  keys.access_token = access_token
+  keys.expiry_date = expiry_date
+
+  db.session.commit()
+
+  updated_keys_data = {
+      "id": keys.id,
+      "access_token": keys.access_token,
+      "refresh_token": keys.refresh_token,
+      "store_id": keys.store_id,
+      "google_account_id": keys.google_account_id,
+      "expiry_date": keys.expiry_date,
+      "created_at": keys.created_at,
+      "updated_at": keys.updated_at
+  }
+
+  return jsonify(updated_keys_data)
+
+def encrypt(text):
+  return text
+
+def decrypt(enc):
+  
+
+  enc = base64.b64decode(enc)
+  cipher = AES.new(keys.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
+  resp = unpad(cipher.decrypt(enc), 16)
+
+  return resp
