@@ -271,7 +271,6 @@ def google_ads():
   
   print(data)
 
-
   start = data['start']
   end = data['end']
   store = data['store']
@@ -284,6 +283,7 @@ def google_ads():
   
   start_date = datetime.strptime(start, "%Y-%m-%d")
   end_date = datetime.strptime(end, "%Y-%m-%d")
+  print(start_date, end_date)
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
@@ -294,105 +294,103 @@ def google_ads():
     return ({'error': 'Store not found'}), 404
  
   keysFound = get_google_accounts_keys_by_store_id(storeFound['id'])
-
   expiryDate = convert_timestamp_to_date(keysFound['expiry_date']/ 1000)
+  refresh_token_dec = decrypt(keysFound['refresh_token']).decode()
+  google_account_id = str(keysFound['google_account_id'])
 
-  resp = decrypt(keysFound['refresh_token'])
-
-  if expiryDate["isValid"] == True:
+  if expiryDate["isValid"] == False:
     accessToken = decrypt(keysFound['access_token'])
   else:
     print('new')
-    accessToken = refresh_access_token(resp)
+    accessToken = refresh_access_token(refresh_token_dec)
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
     
     expiry_date = int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000
-    access_token = accessToken['new_access_token']
+    access_token_enc = encrypt(accessToken['new_access_token'])
+    accessToken = accessToken['new_access_token']
     store_id = storeFound['id']
     
-    update_google_accounts_keys(store_id, access_token, expiry_date)
+    update_google_accounts_keys(store_id, access_token_enc, expiry_date)
 
-  return accessToken, 200
+  credentials = google.oauth2.credentials.Credentials(
+    accessToken,
+    refresh_token=refresh_token_dec,
+    token_uri='https://oauth2.googleapis.com/token',
+    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
+  )
 
-  # credentials = google.oauth2.credentials.Credentials(
-  #   accessToken,
-  #   refresh_token=keys['refresh_token'],
-  #   token_uri='https://oauth2.googleapis.com/token',
-  #   client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-  #   client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
-  # )
+  client = get_google_ads_client(
+    credentials=credentials,
+    developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
+  )
 
-  # client = get_google_ads_client(
-  #   credentials=credentials,
-  #   developer_token=os.environ.get('GOOGLE_MANAGE_TOKEN')
-  # )
+  difference = end_date - start_date
 
-  # difference = end_date - start_date
+  if difference < timedelta(days=1):
+    is_single_day = True
+  else:
+    is_single_day = False
 
-  # if difference < timedelta(days=1):
-  #   is_single_day = True
-  # else:
-  #   is_single_day = False
-
-  # query = f"""
-  #   SELECT
-  #     metrics.cost_micros,
-  #     {"segments.hour" if is_single_day == True else "segments.date"}
-  #   FROM
-  #     campaign
-  #   WHERE
-  #     segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-  #     segments.date <= '{end_date.strftime('%Y%m%d')}'
-  # """
+  query = f"""
+    SELECT
+      metrics.cost_micros,
+      {"segments.hour" if is_single_day == True else "segments.date"}
+    FROM
+      campaign
+    WHERE
+      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
+      segments.date <= '{end_date.strftime('%Y%m%d')}'
+  """
   
-  # ga_service = client.get_service(name="GoogleAdsService")
+  ga_service = client.get_service(name="GoogleAdsService")
   
-  # req = client.get_type("SearchGoogleAdsRequest")
-  # req.customer_id = keys['google_account_id']
-  # req.query = query  
+  req = client.get_type("SearchGoogleAdsRequest")
+  req.customer_id = google_account_id
+  req.query = query  
 
-  # try:
-  #   response = ga_service.search(request=req)
+  try:
+    response = ga_service.search(request=req)
     
-  #   metrics = {
-  #     "id": "google-ads.ads-metrics",
-  #     "metricsBreakdown": []
-  #   }
+    metrics = {
+      "id": "google-ads.ads-metrics",
+      "metricsBreakdown": []
+    }
 
-  #   for row in response:
-  #     json_str = json_format.MessageToJson(row)
-  #     campaign = json.loads(json_str)
-  #     dateKey = None
+    for row in response:
+      json_str = json_format.MessageToJson(row)
+      campaign = json.loads(json_str)
+      dateKey = None
 
-  #     if is_single_day:
-  #       dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
-  #       datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
-  #       date_only = datetime_obj.date()
-  #       dateKey = str(date_only) + "T" + dateKey
-  #     else:
-  #       dateKey = campaign["segments"]["date"]
+      if is_single_day:
+        dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
+        datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
+        date_only = datetime_obj.date()
+        dateKey = str(date_only) + "T" + dateKey
+      else:
+        dateKey = campaign["segments"]["date"]
 
-  #     dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
+      dateExists = next((obj for obj in metrics["metricsBreakdown"] if obj["date"] == dateKey), None)
 
-  #     if (dateExists):
-  #       dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
+      if (dateExists):
+        dateExists["metrics"]["spend"] += int(campaign["metrics"]["costMicros"]) / 1000000
         
-  #     else:
-  #       dataPoint = {
-  #         "date": dateKey,
-  #         "metrics": {
-  #           "spend": int(campaign["metrics"]["costMicros"]) / 1000000
-  #         }
-  #       }
+      else:
+        dataPoint = {
+          "date": dateKey,
+          "metrics": {
+            "spend": int(campaign["metrics"]["costMicros"]) / 1000000
+          }
+        }
 
-  #       metrics["metricsBreakdown"].append(dataPoint)
+        metrics["metricsBreakdown"].append(dataPoint)
 
-  #   return metrics, 200
+    return metrics, 200
   
-  # except:
-  #   return "Something went wrong", 500
+  except Exception as e:
+    return e, 500
 
 def credentials_to_dict(credentials):
   return {
@@ -497,7 +495,7 @@ def get_google_accounts_keys_by_store_id(store_id):
     "access_token": keys.access_token, 
     "refresh_token": keys.refresh_token, 
     "store_id": keys.store_id, 
-    "google_account_id,": keys.google_account_id,
+    "google_account_id": keys.google_account_id,
     "expiry_date": keys.expiry_date,
     "created_at": keys.created_at,
     "updated_at": keys.updated_at
@@ -507,38 +505,31 @@ def get_google_accounts_keys_by_store_id(store_id):
 
 def update_google_accounts_keys(store_id, access_token, expiry_date):
   query = db.text("SELECT * FROM google_accounts WHERE store_id = :store_id")
-  
-  keys = db.session.execute( query, { "store_id": store_id }).fetchone()
-
+  keys = db.session.execute( query, { "store_id": store_id }).fetchone
+ 
   if keys is None:
-      return jsonify({"error": "Store not found"}), 404
+    return jsonify({"error": "Store not found"}), 404
 
-  keys.access_token = access_token
-  keys.expiry_date = expiry_date
+  update_query = db.text(
+    "UPDATE google_accounts SET access_token = :access_token, expiry_date = :expiry_date "
+    "WHERE store_id = :store_id"
+  )
+
+  db.session.execute(
+    update_query,
+    {"store_id": store_id, "access_token": access_token, "expiry_date": expiry_date},
+  )
 
   db.session.commit()
 
-  updated_keys_data = {
-      "id": keys.id,
-      "access_token": keys.access_token,
-      "refresh_token": keys.refresh_token,
-      "store_id": keys.store_id,
-      "google_account_id": keys.google_account_id,
-      "expiry_date": keys.expiry_date,
-      "created_at": keys.created_at,
-      "updated_at": keys.updated_at
-  }
-
-  return jsonify(updated_keys_data)
+  return 'ok'
 
 def encrypt(text):
-  return text
+  cipher = AES.new(keys.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
+  ciphertext = cipher.encrypt(pad(text.encode('utf-8'), 16))
+  return base64.b64encode(ciphertext).decode('utf-8')
 
 def decrypt(enc):
-  
-
   enc = base64.b64decode(enc)
   cipher = AES.new(keys.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
-  resp = unpad(cipher.decrypt(enc), 16)
-
-  return resp
+  return unpad(cipher.decrypt(enc), 16)
