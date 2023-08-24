@@ -1,0 +1,62 @@
+name: "[PROD]: Deploy dashboard python API image to EC2"
+
+on:
+  push:
+    branches:
+      - development
+
+env:
+  AWS_REGION: sa-east-1
+  AWS_ECR_REPO: 548673342488.dkr.ecr.sa-east-1.amazonaws.com/pyboard-api-dev
+  SSH_PRIVATE_KEY: ${{ secrets.EC2_DEV_SSH_PRIVATE_KEY }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 16
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+
+      - name: Build and push Docker image to ECR
+        run: |
+          docker build -t ${{ env.AWS_ECR_REPO }} .
+          docker tag ${{ env.AWS_ECR_REPO }}:latest ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+          docker push ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+          docker tag ${{ env.AWS_ECR_REPO }}:${{ github.sha }} ${{ env.AWS_ECR_REPO }}:latest
+          docker push ${{ env.AWS_ECR_REPO }}:latest
+
+      - name: SSH into EC2 instance and deploy container
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_DEV_SSH_HOST }}
+          username: ${{ secrets.EC2_SSH_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            CONTAINER_NAME="dashboard-python-api"
+            if [ "$(docker ps -aq -f name=dashboard-python-api)" ]; then
+              sudo docker stop dashboard-python-api
+              sudo docker rm dashboard-python-api
+            fi
+
+            sudo docker image prune -af
+
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws configure set region ${{ env.AWS_REGION }}
+
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.AWS_ECR_REPO }}
+
+            docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+
+            sudo docker run -d -p 8081:8081 --name dashboard-python-api --restart on-failure --env-file /home/ec2-user/py-api-env/.env --network dashboard-api-network ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
