@@ -4,6 +4,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    networks:
+      - dashboard-network
     restart: on-failure
     ports:
       - 8081:8081
+      
+networks:
+  dashboard-network:
+    external: true

@@ -26,3 +26,7 @@ redis
 redis-om
 redis-py-cluster
 gunicorn
+psycopg2-binary
+SQLAlchemy
+Flask-SQLAlchemy
+pycryptodome

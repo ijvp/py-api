@@ -7,19 +7,32 @@ from bson import ObjectId, json_util
 from flask import (Blueprint, request, url_for)
 import google.oauth2.credentials
 from google.protobuf import json_format
-from extensions.database import mongo
 from datetime import datetime
 from google.ads.googleads.client import GoogleAdsClient
 from google.ads.googleads.errors import GoogleAdsException
 from datetime import datetime, timedelta
+from Crypto.Random import get_random_bytes
 import base64
 import redis
 from rediscluster import RedisCluster
 import requests
+from extensions.database.postgresql import db
+from app.models.Stores import Stores
+import json
+from flask import jsonify
+
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+import base64
+import os
+
 load_dotenv()     
 
 redis_host = os.environ.get('REDIS_HOST')
 redis_port = os.environ.get('REDIS_PORT')
+
+keys = os.environ.get('CRYPTO_SECRET')
+iv = os.environ.get('CRYPTO_IV')
 
 startup_nodes=[{ "host": redis_host, "port": redis_port, "db": 0}]
 
@@ -42,7 +55,7 @@ API_VERSION = 'v2'
 
 @google_ads_bp.route('/', methods=['GET'])
 def index():
-  return 'ok', 200
+  return jsonify({ "online": True }), 200
 
 @google_ads_bp.route('/google-ads/callback', methods=['GET'])
 def google_callback():
@@ -251,7 +264,13 @@ def google_account_disconnect():
 
 @google_ads_bp.route('/google-ads/ads', methods=['POST'])
 def google_ads():
-  data = json.loads(request.get_data())
+  try:
+    data = json.loads(request.get_data())
+  except json.decoder.JSONDecodeError as e:
+    return jsonify({'error': 'Invalid JSON data'}), 400
+  
+  print(data)
+
   start = data['start']
   end = data['end']
   store = data['store']
@@ -264,37 +283,40 @@ def google_ads():
   
   start_date = datetime.strptime(start, "%Y-%m-%d")
   end_date = datetime.strptime(end, "%Y-%m-%d")
+  print(start_date, end_date)
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
   
-  idFound = r.hget(f"google_ads_account:{store}", 'id')
-
-  storeFound = r.hgetall(f"store:{store}")
+  storeFound = get_store_by_name(store)
 
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
-  
-  expiryDate = convert_timestamp_to_date(int(storeFound['googleAdsExpiryDate'])/ 1000)
+ 
+  keysFound = get_google_accounts_keys_by_store_id(storeFound['id'])
+  expiryDate = convert_timestamp_to_date(keysFound['expiry_date']/ 1000)
+  refresh_token_dec = decrypt(keysFound['refresh_token']).decode()
+  google_account_id = str(keysFound['google_account_id'])
 
-  if expiryDate["isValid"] == True:
-    accessToken = storeFound['googleAdsAccessToken']
+  if expiryDate["isValid"] == False:
+    accessToken = decrypt(keysFound['access_token'])
   else:
     print('new')
-    accessToken = refresh_access_token(storeFound['googleAdsRefreshToken'])
+    accessToken = refresh_access_token(refresh_token_dec)
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
     
-    r.hset(f"store:{store}", 'expiryDate', int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000)
-
+    expiry_date = int(datetime.now().timestamp()*1000) + int(accessToken['expires_in'])*1000
+    access_token_enc = encrypt(accessToken['new_access_token'])
     accessToken = accessToken['new_access_token']
+    store_id = storeFound['id']
+    
+    update_google_accounts_keys(store_id, access_token_enc, expiry_date)
 
-    r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
-  
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
-    refresh_token=storeFound['googleAdsRefreshToken'],
+    refresh_token=refresh_token_dec,
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -326,7 +348,7 @@ def google_ads():
   ga_service = client.get_service(name="GoogleAdsService")
   
   req = client.get_type("SearchGoogleAdsRequest")
-  req.customer_id = idFound
+  req.customer_id = google_account_id
   req.query = query  
 
   try:
@@ -367,8 +389,8 @@ def google_ads():
 
     return metrics, 200
   
-  except:
-    return "Something went wrong", 500
+  except Exception as e:
+    return e, 500
 
 def credentials_to_dict(credentials):
   return {
@@ -409,11 +431,13 @@ def is_valid_object_id(id_str):
 def refresh_access_token(refresh_token):
     token_endpoint = 'https://oauth2.googleapis.com/token'
     payload = {
-        'client_id': os.environ.get("GOOGLE_CLIENT_ID"),
-        'client_secret': os.environ.get("GOOGLE_CLIENT_SECRET"),
-        'refresh_token': refresh_token,
-        'grant_type': 'refresh_token'
+      'client_id': os.environ.get("GOOGLE_CLIENT_ID"),
+      'client_secret': os.environ.get("GOOGLE_CLIENT_SECRET"),
+      'refresh_token': refresh_token,
+      'grant_type': 'refresh_token'
     }
+
+    print(payload)
 
     response = requests.post(token_endpoint, data=payload)
     if response.status_code == 200:
@@ -439,3 +463,73 @@ def convert_timestamp_to_date(timestamp):
     formatted_date = date.strftime('%Y-%m-%d %H:%M:%S')
 
     return ({"data": formatted_date, "isValid": current_datetime < date})
+
+def get_store_by_name(name):
+  query = db.text("SELECT * FROM stores WHERE name = :name")
+  
+  store = db.session.execute( query, { "name": name }).fetchone()
+
+  if store is None:
+    return jsonify({ "error": "Store not found" }), 404
+  
+  store_data = {
+    "id": store.id, 
+    "name": store.name, 
+    "user_id": store.user_id, 
+    "created_at": store.created_at, 
+    "updated_at": store.updated_at
+  }
+
+  return store_data
+
+def get_google_accounts_keys_by_store_id(store_id):
+  query = db.text("SELECT * FROM google_accounts WHERE store_id = :store_id")
+  
+  keys = db.session.execute( query, { "store_id": store_id }).fetchone()
+
+  if keys is None:
+    return jsonify({ "error": "Store not found" }), 404
+  
+  keys_data = {
+    "id": keys.id,
+    "access_token": keys.access_token, 
+    "refresh_token": keys.refresh_token, 
+    "store_id": keys.store_id, 
+    "google_account_id": keys.google_account_id,
+    "expiry_date": keys.expiry_date,
+    "created_at": keys.created_at,
+    "updated_at": keys.updated_at
+  }
+
+  return keys_data
+
+def update_google_accounts_keys(store_id, access_token, expiry_date):
+  query = db.text("SELECT * FROM google_accounts WHERE store_id = :store_id")
+  keys = db.session.execute( query, { "store_id": store_id }).fetchone
+ 
+  if keys is None:
+    return jsonify({"error": "Store not found"}), 404
+
+  update_query = db.text(
+    "UPDATE google_accounts SET access_token = :access_token, expiry_date = :expiry_date "
+    "WHERE store_id = :store_id"
+  )
+
+  db.session.execute(
+    update_query,
+    {"store_id": store_id, "access_token": access_token, "expiry_date": expiry_date},
+  )
+
+  db.session.commit()
+
+  return 'ok'
+
+def encrypt(text):
+  cipher = AES.new(keys.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
+  ciphertext = cipher.encrypt(pad(text.encode('utf-8'), 16))
+  return base64.b64encode(ciphertext).decode('utf-8')
+
+def decrypt(enc):
+  enc = base64.b64decode(enc)
+  cipher = AES.new(keys.encode('utf-8'), AES.MODE_CBC, iv.encode('utf-8'))
+  return unpad(cipher.decrypt(enc), 16)
