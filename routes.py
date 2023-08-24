@@ -24,29 +24,58 @@ redis_port = os.environ.get('REDIS_PORT')
 startup_nodes=[{ "host": redis_host, "port": redis_port, "db": 0}]
 
 if os.environ.get('ENV') == 'development':
-  print("dev")
   r = redis.StrictRedis(host=redis_host, port=redis_port, decode_responses=True)
 else:
-  print("prod")
   r = RedisCluster(startup_nodes=startup_nodes, decode_responses=True, ssl=True, ssl_cert_reqs=None, skip_full_coverage_check=True)
 
 if r.ping():
   print('Redis Connected')
 
-google_ads_bp = Blueprint('ads', __name__)
+routes = Blueprint("routes", __name__)
 
 CLIENT_SECRETS_FILE = "credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/adwords']
 API_SERVICE_NAME = 'drive'
 API_VERSION = 'v2'
 
-@google_ads_bp.route('/', methods=['GET'])
+# g=Fernet.generate_key()
+
+fernetKey = os.environ.get('FERNET_KEY')
+
+if fernetKey is None:
+  raise ValueError("FERNET_KEY environment variable is not set.")
+
+fernet = Fernet(fernetKey)
+
+@routes.route('/', methods=['GET'])
 def index():
+  msg = r.keys(pattern="*")
   return 'ok', 200
 
-@google_ads_bp.route('/google-ads/callback', methods=['GET'])
+@routes.route('/google/authorize', methods=['GET'])
+def google_authorize():
+  store = request.args.get('store')
+  id = request.args.get('id')
+
+  state = json.dumps({
+    'store': store,
+    'id': id
+  })
+
+  flow = get_flow()
+
+  authorization_url, store = flow.authorization_url(
+    access_type='offline',
+    approval_prompt="force",
+    include_granted_scopes='true',
+    state=state
+  )
+
+  return authorization_url
+
+@routes.route('/google/callback', methods=['GET'])
 def google_callback():
-  state_str = str(request.args.get('state'))
+  state_str = request.args.get('state')
   state = json.loads(state_str)
 
   #flow = get_flow()
@@ -96,7 +125,7 @@ def google_callback():
     
   # return ({'error': 'shop not found!'}), 404
 
-@google_ads_bp.route('/google-ads/accounts', methods=['GET'])
+@routes.route('/google/accounts', methods=['GET'])
 def google_accounts():
   id = request.args.get('id')
   store = request.args.get('store')
@@ -110,9 +139,7 @@ def google_accounts():
 
   if expiryDate["isValid"] == True:
     accessToken = storeFound['googleAccessToken']
-    print('same')
   else:
-    print('new')
     accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
@@ -173,7 +200,7 @@ def google_accounts():
 
   return customers, 200
 
-@google_ads_bp.route('/google-ads/account/connect', methods=['POST'])
+@routes.route('/google/account/connect', methods=['POST'])
 def google_account_connect():
   id = request.args.get('id')
   data = json.loads(request.get_data())
@@ -217,7 +244,7 @@ def google_account_connect():
 
   # return json.dumps(response)
 
-@google_ads_bp.route('/google-ads/account/disconnect', methods=['GET'])
+@routes.route('/google/account/disconnect', methods=['GET'])
 def google_account_disconnect():
   shop = request.args.get('shop')
   id = request.args.get('id')
@@ -249,21 +276,25 @@ def google_account_disconnect():
 
   # return json.dumps(response)
 
-@google_ads_bp.route('/google-ads/ads', methods=['POST'])
+@routes.route('/google/ads', methods=['POST'])
 def google_ads():
   data = json.loads(request.get_data())
   start = data['start']
   end = data['end']
   store = data['store']
+  dateRange = data.get('dateRange')
+
+  print(start)
 
   if not store:
     return ({'error': 'Missing store!'}), 400
-  
+   
   if not start or not end: 
     return ({'error': 'Start date and end date must be set!'}), 400
   
-  start_date = datetime.strptime(start, "%Y-%m-%d")
-  end_date = datetime.strptime(end, "%Y-%m-%d")
+  date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+  start_date = datetime.strptime(start, date_format)
+  end_date = datetime.strptime(end, date_format)
 
   if start_date > end_date:
     return ({'error': 'Start date cannot occur after the end date!'}), 400
@@ -275,13 +306,12 @@ def google_ads():
   if(storeFound == None):
     return ({'error': 'Store not found'}), 404
   
-  expiryDate = convert_timestamp_to_date(int(storeFound['googleAdsExpiryDate'])/ 1000)
+  expiryDate = convert_timestamp_to_date(int(storeFound['expiryDate'])/ 1000)
 
   if expiryDate["isValid"] == True:
-    accessToken = storeFound['googleAdsAccessToken']
+    accessToken = storeFound['googleAccessToken']
   else:
-    print('new')
-    accessToken = refresh_access_token(storeFound['googleAdsRefreshToken'])
+    accessToken = refresh_access_token(storeFound['googleRefreshToken'])
 
     if(accessToken == 'error'):
       return ({'error': 'error when authenticating store'}), 401
@@ -290,11 +320,11 @@ def google_ads():
 
     accessToken = accessToken['new_access_token']
 
-    r.hset(f"store:{store}", 'googleAdsAccessToken', accessToken)
+    r.hset(f"store:{store}", 'googleAccessToken', accessToken)
   
   credentials = google.oauth2.credentials.Credentials(
     accessToken,
-    refresh_token=storeFound['googleAdsRefreshToken'],
+    refresh_token=storeFound['googleRefreshToken'],
     token_uri='https://oauth2.googleapis.com/token',
     client_id=os.environ.get('GOOGLE_CLIENT_ID'),
     client_secret=os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -306,7 +336,6 @@ def google_ads():
   )
 
   difference = end_date - start_date
-
   if difference < timedelta(days=1):
     is_single_day = True
   else:
@@ -315,12 +344,12 @@ def google_ads():
   query = f"""
     SELECT
       metrics.cost_micros,
-      {"segments.hour" if is_single_day == True else "segments.date"}
+      segments.date,
+      segments.hour
     FROM
       campaign
     WHERE
-      segments.date >= '{start_date.strftime('%Y%m%d')}' AND
-      segments.date <= '{end_date.strftime('%Y%m%d')}'
+      {f"segments.date >= {start_date.strftime('%Y%m%d')} AND segments.date <= {end_date.strftime('%Y%m%d')}" if not dateRange else f"segments.date DURING {dateRange}"}
   """
   
   ga_service = client.get_service(name="GoogleAdsService")
@@ -342,11 +371,11 @@ def google_ads():
       campaign = json.loads(json_str)
       dateKey = None
 
+      
       if is_single_day:
         dateKey = "0" + str(campaign["segments"]["hour"]) if campaign["segments"]["hour"] < 10 else str(campaign["segments"]["hour"])
-        datetime_obj = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
-        date_only = datetime_obj.date()
-        dateKey = str(date_only) + "T" + dateKey
+        dt = datetime.strptime(str(start_date), '%Y-%m-%d %H:%M:%S')
+        dateKey = dt.replace(hour=campaign["segments"]["hour"])
       else:
         dateKey = campaign["segments"]["date"]
 
@@ -395,7 +424,7 @@ def get_flow():
   }
 
   flow = google_auth_oauthlib.flow.Flow.from_client_config(client_config=credentialsObj,scopes=SCOPES)
-  flow.redirect_uri = url_for('google_ads_bp.google_callback', _external=True)
+  flow.redirect_uri = url_for('routes.google_callback', _external=True)
 
   return flow
 
