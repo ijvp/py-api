@@ -1,8 +1,8 @@
-name: "[PROD]: Deploy dashboard python API image to EC2"
+name: Deploy dashboard python to ECR and EC2
 
 on:
   push:
-    branches:
+    branches: 
       - main
 
 env:
@@ -14,30 +14,20 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: false
-
-      - name: Use Node.js 16
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-
+    steps:        
+      - name: Checkout repository
+        uses: actions/checkout@v2
+ 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
+          aws-region: sa-east-1
+          
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-        with:
-          mask-password: true
-          registry-type: private
 
       - name: Build and push Docker image to ECR
         run: |
@@ -71,3 +61,5 @@ jobs:
             docker pull ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
 
             sudo docker run -d -p 8081:8081 --name dashboard-python-api --restart on-failure --env-file /home/ec2-user/py-api-env/.env --network dashboard-api-network ${{ env.AWS_ECR_REPO }}:${{ github.sha }}
+
+ 
