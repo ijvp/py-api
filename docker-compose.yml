@@ -1,9 +1,0 @@
-version: '3'
-services:
-  python-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: on-failure
-    ports:
-      - 8081:8081
